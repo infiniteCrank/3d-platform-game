@@ -22,7 +22,7 @@ Assumes that your client-side files (index.html, main.js, etc.) are in a public 
 
 ## Build and Run the Server:
 
-```go run server.go```\
+```go run server.go```
 
 ## Access the Game:
 
