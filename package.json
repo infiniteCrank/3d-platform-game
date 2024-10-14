@@ -1,0 +1,19 @@
+{
+  "name": "3d-platform-game",
+  "version": "1.0.0",
+  "description": "This is a 3d platform game I made for GoLang DoJo in 2024 at Ippon technologies",
+  "main": "index.js",
+  "scripts": {
+    "start": "live-server --open=./index.html"
+  },
+  "devDependencies": {
+    "@types/three": "^0.169.0",
+    "live-server": "^1.2.0"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "three": "^0.169.0"
+  }
+}
