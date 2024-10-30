@@ -26,8 +26,9 @@ type PlayerState struct {
 
 // GameState holds the state of the game within a lobby.
 type GameState struct {
-	Player1 PlayerState `json:"player1"`
-	Player2 PlayerState `json:"player2"`
+	Player1   PlayerState `json:"player1"`
+	Player2   PlayerState `json:"player2"`
+	Platforms []Position  `json:"platforms"`
 }
 
 // InputMessage represents input from clients.
@@ -87,6 +88,8 @@ func newServer() *Server {
 
 // Initialize a new lobby.
 func newLobby(id string) *Lobby {
+	platforms := generateRandomPlatforms(20) // Generate 20 random platforms
+
 	return &Lobby{
 		ID:         id,
 		clients:    make(map[*Client]bool),
@@ -94,10 +97,23 @@ func newLobby(id string) *Lobby {
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		state: GameState{
-			Player1: PlayerState{Position: Position{X: 0, Y: 2, Z: 0}},
-			Player2: PlayerState{Position: Position{X: 0, Y: 2, Z: 0}},
+			Player1:   PlayerState{Position: Position{X: 0, Y: 2, Z: 0}},
+			Player2:   PlayerState{Position: Position{X: 0, Y: 2, Z: 0}},
+			Platforms: platforms,
 		},
 	}
+}
+
+func generateRandomPlatforms(count int) []Position {
+	platforms := make([]Position, count)
+	for i := 0; i < count; i++ {
+		platforms[i] = Position{
+			X: (rand.Float64() * 180) - 90,
+			Y: (rand.Float64() * 40) + 5,
+			Z: (rand.Float64() * 180) - 90,
+		}
+	}
+	return platforms
 }
 
 // RunLobby continuously listens for lobby events.

@@ -129,18 +129,18 @@ ground.position.y = -0.5;
 scene.add(ground);
 
 // Platforms
-const platformGeometry = new THREE.BoxGeometry(10, 1, 10);
-const platformMaterial = new THREE.MeshStandardMaterial({ color: 0x8B0000 });
+// const platformGeometry = new THREE.BoxGeometry(10, 1, 10);
+// const platformMaterial = new THREE.MeshStandardMaterial({ color: 0x8B0000 });
 
-for (let i = 0; i < 20; i++) {
-  const platform = new THREE.Mesh(platformGeometry, platformMaterial);
-  platform.position.set(
-    Math.random() * 180 - 90,
-    Math.random() * 40 + 5,
-    Math.random() * 180 - 90
-  );
-  scene.add(platform);
-}
+// for (let i = 0; i < 20; i++) {
+//   const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+//   platform.position.set(
+//     Math.random() * 180 - 90,
+//     Math.random() * 40 + 5,
+//     Math.random() * 180 - 90
+//   );
+//   scene.add(platform);
+// }
 
 // Player Class
 class Player {
@@ -325,5 +325,23 @@ function updateGameState(state) {
     player2.setPosition(state.Player2.Position);
   }
 
-  // Update other game elements as needed
+  // Update platform positions
+  if (state.platforms) {
+    updatePlatforms(state.platforms);
+  }
+}
+
+function updatePlatforms(platformPositions) {
+  // Remove existing platforms
+  scene.children = scene.children.filter(child => child.userData.type !== 'platform');
+
+  // Create new platforms based on server data
+  platformPositions.forEach(pos => {
+      const platformGeometry = new THREE.BoxGeometry(10, 1, 10);
+      const platformMaterial = new THREE.MeshStandardMaterial({ color: 0x8B0000 });
+      const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+      platform.position.set(pos.x, pos.y, pos.z);
+      platform.userData.type = 'platform';
+      scene.add(platform);
+  });
 }
