@@ -145,13 +145,17 @@ func (s *Server) runLobby(lobby *Lobby) {
 
 // Broadcast to all clients safely.
 func (l *Lobby) broadcastToClients(message []byte) {
+	// Lock the lobby mutex to safely iterate over clients
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
 	for client := range l.clients {
 		select {
 		case client.send <- message:
 		default:
 			// If sending fails, close the send channel and remove the client
 			close(client.send)
-			delete(lobby.clients, client)
+			delete(l.clients, client)
 		}
 	}
 }
