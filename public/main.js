@@ -24,16 +24,21 @@ function setupWebSocket() {
   };
 
   socket.onmessage = (event) => {
+    console.log(event)
     const data = JSON.parse(event.data);
     switch (data.type) {
       case MESSAGE_TYPES.LOBBY_CREATED:
         console.log(`Lobby created with ID: ${data.lobbyID}`);
         alert(`Lobby created! Lobby ID: ${data.lobbyID}`);
+        document.getElementById('lobbyModal').classList.remove('show');
+        document.getElementById('lobbyModal').classList.add('hidden');
+        document.getElementById('info').classList.remove('hidden');
         break;
       case MESSAGE_TYPES.LOBBY_JOINED:
         console.log(`Joined Lobby: ${data.lobbyID} as ${data.playerID}`);
         playerID = data.playerID;
         // Hide lobby modal and show game info
+        document.getElementById('lobbyModal').classList.remove('show');
         document.getElementById('lobbyModal').classList.add('hidden');
         document.getElementById('info').classList.remove('hidden');
         break;
@@ -47,6 +52,7 @@ function setupWebSocket() {
         break;
       case MESSAGE_TYPES.GAME_STATE:
         // Update game state
+        console.log("i updated game state.")
         updateGameState(data.state);
         break;
       default:
@@ -127,20 +133,6 @@ const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 ground.position.y = -0.5;
 scene.add(ground);
-
-// Platforms
-// const platformGeometry = new THREE.BoxGeometry(10, 1, 10);
-// const platformMaterial = new THREE.MeshStandardMaterial({ color: 0x8B0000 });
-
-// for (let i = 0; i < 20; i++) {
-//   const platform = new THREE.Mesh(platformGeometry, platformMaterial);
-//   platform.position.set(
-//     Math.random() * 180 - 90,
-//     Math.random() * 40 + 5,
-//     Math.random() * 180 - 90
-//   );
-//   scene.add(platform);
-// }
 
 // Player Class
 class Player {

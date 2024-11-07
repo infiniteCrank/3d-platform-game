@@ -15,7 +15,6 @@
       width: 100%;
       height: 100%;
       background: rgba(0,0,0,0.8);
-      display: flex;
       justify-content: center;
       align-items: center;
       z-index: 1000;
@@ -50,6 +49,10 @@
       display: none;
     }
 
+    .show {
+      display: flex;
+    }
+
     /* Game Info Overlay */
     #info {
       position: absolute;
@@ -65,7 +68,7 @@
 </head>
 <body>
   <!-- Lobby Modal -->
-  <div id="lobbyModal">
+  <div id="lobbyModal" class="show">
     <div id="lobbyContent">
       <h2>Join a Game Lobby</h2>
       <input type="text" id="lobbyIDInput" placeholder="Enter Lobby ID">

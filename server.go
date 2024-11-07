@@ -127,8 +127,10 @@ func (s *Server) runLobby(lobby *Lobby) {
 			lobby.sendState(client)
 			// If lobby is full, start the game
 			if len(lobby.clients) == 2 {
+				log.Println("Lobby is full. Starting game...")
 				lobby.broadcastGameStart()
 			}
+			log.Printf("Number of clients in lobby %s: %d", lobby.ID, len(lobby.clients))
 		case client := <-lobby.unregister:
 			if _, ok := lobby.clients[client]; ok {
 				delete(lobby.clients, client)
@@ -174,6 +176,7 @@ func (l *Lobby) broadcastGameStart() {
 		log.Println("Error marshalling game_start:", err)
 		return
 	}
+	log.Println("Broadcasting game start message to clients.")
 	l.broadcast <- startMessage
 }
 
