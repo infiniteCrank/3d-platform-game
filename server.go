@@ -93,7 +93,7 @@ func newLobby(id string) *Lobby {
 	return &Lobby{
 		ID:         id,
 		clients:    make(map[*Client]bool),
-		broadcast:  make(chan []byte),
+		broadcast:  make(chan []byte, 256), // Ensure channels are buffered
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		state: GameState{
@@ -125,7 +125,7 @@ func (s *Server) runLobby(lobby *Lobby) {
 			log.Printf("Client registered to Lobby %s as %s", lobby.ID, client.playerID)
 			// Send initial game state to the newly joined client
 			lobby.sendState(client)
-			// If lobby is full, start the game
+			// If the lobby is full, start the game
 			if len(lobby.clients) == 2 {
 				log.Println("Lobby is full. Starting game...")
 				lobby.broadcastGameStart()
@@ -138,14 +138,20 @@ func (s *Server) runLobby(lobby *Lobby) {
 				log.Printf("Client unregistered from Lobby %s", lobby.ID)
 			}
 		case message := <-lobby.broadcast:
-			for client := range lobby.clients {
-				select {
-				case client.send <- message:
-				default:
-					close(client.send)
-					delete(lobby.clients, client)
-				}
-			}
+			lobby.broadcastToClients(message)
+		}
+	}
+}
+
+// Broadcast to all clients safely.
+func (l *Lobby) broadcastToClients(message []byte) {
+	for client := range l.clients {
+		select {
+		case client.send <- message:
+		default:
+			// If sending fails, close the send channel and remove the client
+			close(client.send)
+			delete(lobby.clients, client)
 		}
 	}
 }
@@ -190,7 +196,7 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 
 	client := &Client{
 		conn: conn,
-		send: make(chan []byte, 256),
+		send: make(chan []byte, 256), // Buffered channel for messages to send to the client
 	}
 
 	go client.writePump()
@@ -380,7 +386,7 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 // Generate a unique lobby ID.
 func generateLobbyID() string {
 	rand.Seed(time.Now().UnixNano())
-	return strconv.Itoa(rand.Intn(100000)) // Simple numeric ID. For better uniqueness, consider using UUIDs.
+	return strconv.Itoa(rand.Intn(100000)) // Simple numeric ID; for better uniqueness, consider using UUIDs.
 }
 
 func main() {
