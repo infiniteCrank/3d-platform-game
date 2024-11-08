@@ -30,6 +30,8 @@ function setupWebSocket() {
       case MESSAGE_TYPES.LOBBY_CREATED:
         console.log(`Lobby created with ID: ${data.lobbyID}`);
         alert(`Lobby created! Lobby ID: ${data.lobbyID}`);
+        playerID = "player1"
+        console.log(`Joined Lobby: ${data.lobbyID} as ${data.playerID}`);
         document.getElementById('lobbyModal').classList.remove('show');
         document.getElementById('lobbyModal').classList.add('hidden');
         document.getElementById('info').classList.remove('hidden');
@@ -52,7 +54,6 @@ function setupWebSocket() {
         break;
       case MESSAGE_TYPES.GAME_STATE:
         // Update game state
-        console.log("i updated game state.")
         updateGameState(data.state);
         break;
       default:
@@ -206,6 +207,7 @@ const keysPressed = {};
 
 // Event Listeners for Key Presses
 document.addEventListener('keydown', (event) => {
+  console.log(playerID)
   keysPressed[event.code] = true;
 
   // Player 1 Jump
