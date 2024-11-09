@@ -24,21 +24,19 @@ function setupWebSocket() {
   };
 
   socket.onmessage = (event) => {
-    console.log(event)
     const data = JSON.parse(event.data);
     switch (data.type) {
       case MESSAGE_TYPES.LOBBY_CREATED:
-        console.log(`Lobby created with ID: ${data.lobbyID}`);
         alert(`Lobby created! Lobby ID: ${data.lobbyID}`);
         playerID = "player1"
-        console.log(`Joined Lobby: ${data.lobbyID} as ${data.playerID}`);
+        console.log(`Joined Lobby: ${data.lobbyID} as ${playerID}`);
         document.getElementById('lobbyModal').classList.remove('show');
         document.getElementById('lobbyModal').classList.add('hidden');
         document.getElementById('info').classList.remove('hidden');
         break;
       case MESSAGE_TYPES.LOBBY_JOINED:
-        console.log(`Joined Lobby: ${data.lobbyID} as ${data.playerID}`);
         playerID = data.playerID;
+        console.log(`Joined Lobby: ${data.lobbyID} as ${playerID}`);
         // Hide lobby modal and show game info
         document.getElementById('lobbyModal').classList.remove('show');
         document.getElementById('lobbyModal').classList.add('hidden');
@@ -207,7 +205,6 @@ const keysPressed = {};
 
 // Event Listeners for Key Presses
 document.addEventListener('keydown', (event) => {
-  console.log(playerID)
   keysPressed[event.code] = true;
 
   // Player 1 Jump
@@ -295,7 +292,10 @@ function animate() {
 animate();
 
 // Update Camera to follow the active player
-function updateCamera() {
+function updateCamera(pos) {
+  console.log("Camera Old Position:")
+  console.log(camera.position)
+
   if (playerID === 'player1') {
     camera.position.x = player1.mesh.position.x;
     camera.position.y = player1.mesh.position.y + 20;
@@ -307,16 +307,22 @@ function updateCamera() {
     camera.position.z = player2.mesh.position.z + 30;
     camera.lookAt(player2.mesh.position);
   }
+  console.log("Camera new Position:")
+  console.log(camera.position)
 }
 
 // Placeholder function to update game state
 function updateGameState(state) {
   // Update player positions
-  if (state.Player1) {
-    player1.setPosition(state.Player1.Position);
+  if (state.player1 !== undefined) {
+    console.log("update player 1")
+    player1.setPosition(state.player1.position);
+    updateCamera(state.player1.position)
   }
-  if (state.Player2) {
-    player2.setPosition(state.Player2.Position);
+  if (state.player2 !== undefined) {
+    console.log("update player 2")
+    player2.setPosition(state.player2.position);
+    updateCamera(state.player2.position)
   }
 
   // Update platform positions
