@@ -292,37 +292,36 @@ function animate() {
 animate();
 
 // Update Camera to follow the active player
-function updateCamera(pos) {
-  console.log("Camera Old Position:")
-  console.log(camera.position)
-
+function updateCamera() {
+  // Ensure player mesh positions are valid before setting camera positions
   if (playerID === 'player1') {
-    camera.position.x = player1.mesh.position.x;
-    camera.position.y = player1.mesh.position.y + 20;
-    camera.position.z = player1.mesh.position.z + 30;
-    camera.lookAt(player1.mesh.position);
+      if (player1.mesh.position) {
+          camera.position.x = player1.mesh.position.x || 0; // Default to 0 if NaN
+          camera.position.y = player1.mesh.position.y + 20 || 20; // Default to 20 if NaN
+          camera.position.z = player1.mesh.position.z + 30 || 30; // Default to 30 if NaN
+          camera.lookAt(player1.mesh.position);
+      }
   } else if (playerID === 'player2') {
-    camera.position.x = player2.mesh.position.x;
-    camera.position.y = player2.mesh.position.y + 20;
-    camera.position.z = player2.mesh.position.z + 30;
-    camera.lookAt(player2.mesh.position);
+      if (player2.mesh.position) {
+          camera.position.x = player2.mesh.position.x || 0; // Default to 0 if NaN
+          camera.position.y = player2.mesh.position.y + 20 || 20; // Default to 20 if NaN
+          camera.position.z = player2.mesh.position.z + 30 || 30; // Default to 30 if NaN
+          camera.lookAt(player2.mesh.position);
+      }
   }
-  console.log("Camera new Position:")
-  console.log(camera.position)
 }
 
 // Placeholder function to update game state
 function updateGameState(state) {
-  // Update player positions
-  if (state.player1 !== undefined) {
+
+   // Update player positions
+  if (state.Player1 && state.Player1.Position) {
     console.log("update player 1")
-    player1.setPosition(state.player1.position);
-    updateCamera(state.player1.position)
+      player1.setPosition(state.Player1.Position);
   }
-  if (state.player2 !== undefined) {
-    console.log("update player 2")
-    player2.setPosition(state.player2.position);
-    updateCamera(state.player2.position)
+  if (state.Player2 && state.Player2.Position) {
+      player2.setPosition(state.Player2.Position);
+      console.log("update player 2")
   }
 
   // Update platform positions
