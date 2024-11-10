@@ -3,99 +3,95 @@ import * as THREE from 'three';
 
 // Define message types
 const MESSAGE_TYPES = {
-  CREATE_LOBBY: 'create_lobby',
-  JOIN_LOBBY: 'join_lobby',
-  LOBBY_CREATED: 'lobby_created',
-  LOBBY_JOINED: 'lobby_joined',
-  LOBBY_ERROR: 'lobby_error',
-  GAME_START: 'game_start',
-  GAME_STATE: 'game_state',
-  PLAYER_INPUT: 'player_input'
+    CREATE_LOBBY: 'create_lobby',
+    JOIN_LOBBY: 'join_lobby',
+    LOBBY_CREATED: 'lobby_created',
+    LOBBY_JOINED: 'lobby_joined',
+    LOBBY_ERROR: 'lobby_error',
+    GAME_START: 'game_start',
+    GAME_STATE: 'game_state',
+    PLAYER_INPUT: 'player_input'
 };
 
 // WebSocket Setup
 let socket;
 
 function setupWebSocket() {
-  socket = new WebSocket('ws://' + window.location.host + '/ws');
+    socket = new WebSocket('ws://' + window.location.host + '/ws');
 
-  socket.onopen = () => {
-    console.log('Connected to server');
-  };
+    socket.onopen = () => {
+        console.log('Connected to server');
+    };
 
-  socket.onmessage = (event) => {
-    const data = JSON.parse(event.data);
+    socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        handleServerMessage(data);
+    };
+
+    socket.onclose = () => {
+        console.log('Disconnected from server');
+    };
+}
+
+function handleServerMessage(data) {
     switch (data.type) {
-      case MESSAGE_TYPES.LOBBY_CREATED:
-        alert(`Lobby created! Lobby ID: ${data.lobbyID}`);
-        playerID = "player1"
-        console.log(`Joined Lobby: ${data.lobbyID} as ${playerID}`);
-        document.getElementById('lobbyModal').classList.remove('show');
-        document.getElementById('lobbyModal').classList.add('hidden');
-        document.getElementById('info').classList.remove('hidden');
-        break;
-      case MESSAGE_TYPES.LOBBY_JOINED:
-        playerID = data.playerID;
-        console.log(`Joined Lobby: ${data.lobbyID} as ${playerID}`);
-        // Hide lobby modal and show game info
-        document.getElementById('lobbyModal').classList.remove('show');
-        document.getElementById('lobbyModal').classList.add('hidden');
-        document.getElementById('info').classList.remove('hidden');
-        break;
-      case MESSAGE_TYPES.LOBBY_ERROR:
-        console.error(`Lobby Error: ${data.message}`);
-        document.getElementById('lobbyError').innerText = data.message;
-        break;
-      case MESSAGE_TYPES.GAME_START:
-        console.log('Game is starting!');
-        // Additional game start logic if needed
-        break;
-      case MESSAGE_TYPES.GAME_STATE:
-        // Update game state
-        updateGameState(data.state);
-        break;
-      default:
-        console.log('Unknown message type:', data.type);
+        case MESSAGE_TYPES.LOBBY_CREATED:
+            alert(`Lobby created! Lobby ID: ${data.lobbyID}`);
+            playerID = "player1";
+            console.log(`Joined Lobby: ${data.lobbyID} as ${playerID}`);
+            hideLobbyModal();
+            break;
+        case MESSAGE_TYPES.LOBBY_JOINED:
+            playerID = data.playerID;
+            console.log(`Joined Lobby: ${data.lobbyID} as ${playerID}`);
+            hideLobbyModal();
+            break;
+        case MESSAGE_TYPES.LOBBY_ERROR:
+            console.error(`Lobby Error: ${data.message}`);
+            document.getElementById('lobbyError').innerText = data.message;
+            break;
+        case MESSAGE_TYPES.GAME_START:
+            console.log('Game is starting!');
+            break;
+        case MESSAGE_TYPES.GAME_STATE:
+            updateGameState(data.state);
+            break;
+        default:
+            console.log('Unknown message type:', data.type);
     }
-  };
+}
 
-  socket.onclose = () => {
-    console.log('Disconnected from server');
-  };
+function hideLobbyModal() {
+    document.getElementById('lobbyModal').classList.remove('show');
+    document.getElementById('lobbyModal').classList.add('hidden');
+    document.getElementById('info').classList.remove('hidden');
 }
 
 setupWebSocket();
 
-// Lobby Modal Elements
-const lobbyModal = document.getElementById('lobbyModal');
-const lobbyIDInput = document.getElementById('lobbyIDInput');
-const joinLobbyBtn = document.getElementById('joinLobbyBtn');
-const createLobbyBtn = document.getElementById('createLobbyBtn');
-const lobbyError = document.getElementById('lobbyError');
-
 // Event Listeners for Lobby Actions
-joinLobbyBtn.addEventListener('click', () => {
-  const lobbyID = lobbyIDInput.value.trim();
-  if (lobbyID === '') {
-    lobbyError.innerText = 'Please enter a Lobby ID.';
-    return;
-  }
-  sendMessage({
-    type: MESSAGE_TYPES.JOIN_LOBBY,
-    lobbyID: lobbyID
-  });
+document.getElementById('joinLobbyBtn').addEventListener('click', () => {
+    const lobbyID = document.getElementById('lobbyIDInput').value.trim();
+    if (lobbyID === '') {
+        document.getElementById('lobbyError').innerText = 'Please enter a Lobby ID.';
+        return;
+    }
+    sendMessage({
+        type: MESSAGE_TYPES.JOIN_LOBBY,
+        lobbyID: lobbyID
+    });
 });
 
-createLobbyBtn.addEventListener('click', () => {
-  sendMessage({
-    type: MESSAGE_TYPES.CREATE_LOBBY
-  });
+document.getElementById('createLobbyBtn').addEventListener('click', () => {
+    sendMessage({
+        type: MESSAGE_TYPES.CREATE_LOBBY
+    });
 });
 
 function sendMessage(message) {
-  if (socket && socket.readyState === WebSocket.OPEN) {
-    socket.send(JSON.stringify(message));
-  }
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify(message));
+    }
 }
 
 // Player Identifier
@@ -103,9 +99,7 @@ let playerID = null; // 'player1' or 'player2'
 
 // Three.js Initialization
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(
-  75, window.innerWidth / window.innerHeight, 0.1, 1000
-);
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
 camera.position.set(0, 20, 30);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -114,9 +108,9 @@ document.body.appendChild(renderer.domElement);
 
 // Handle Window Resize
 window.addEventListener('resize', () => {
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
 });
 
 // Lighting
@@ -135,70 +129,63 @@ scene.add(ground);
 
 // Player Class
 class Player {
-  constructor(color, id) {
-    const geometry = new THREE.BoxGeometry(2, 4, 2);
-    const material = new THREE.MeshStandardMaterial({ color });
-    this.mesh = new THREE.Mesh(geometry, material);
-    this.mesh.position.y = 2;
-    scene.add(this.mesh);
+    constructor(color, id) {
+        const geometry = new THREE.BoxGeometry(2, 4, 2);
+        const material = new THREE.MeshStandardMaterial({ color });
+        this.mesh = new THREE.Mesh(geometry, material);
+        this.mesh.position.y = 2;
+        scene.add(this.mesh);
 
-    // Movement properties
-    this.velocity = new THREE.Vector3();
-    this.direction = new THREE.Vector3();
-    this.speed = 10;
-    this.jumpSpeed = 15;
-    this.canJump = false;
+        // Movement properties
+        this.velocity = new THREE.Vector3();
+        this.direction = new THREE.Vector3();
+        this.speed = 10;
+        this.jumpSpeed = 15;
+        this.canJump = false;
 
-    // Player ID
-    this.id = id;
-  }
-
-  update(delta) {
-    // Apply gravity
-    this.velocity.y -= 30 * delta; // Stronger gravity for realism
-
-    // Update position
-    this.mesh.position.addScaledVector(this.velocity, delta);
-
-    // Collision with ground
-    if (this.mesh.position.y <= 2) {
-      this.mesh.position.y = 2;
-      this.velocity.y = 0;
-      this.canJump = true;
+        // Player ID
+        this.id = id;
     }
 
-    // TODO: Implement collision with platforms
-  }
+    update(delta) {
+        // Apply gravity
+        this.velocity.y -= 30 * delta; // Stronger gravity for realism
 
-  setDirection(x, z) {
-    this.direction.set(x, 0, z).normalize();
-    if (this.direction.length() > 0) {
-      this.velocity.x = this.direction.x * this.speed;
-      this.velocity.z = this.direction.z * this.speed;
-    } else {
-      this.velocity.x = 0;
-      this.velocity.z = 0;
+        // Update position
+        this.mesh.position.addScaledVector(this.velocity, delta);
+
+        // Collision with ground
+        if (this.mesh.position.y <= 2) {
+            this.mesh.position.y = 2;
+            this.velocity.y = 0;
+            this.canJump = true;
+        }
     }
-  }
 
-  jump() {
-    if (this.canJump) {
-      this.velocity.y = this.jumpSpeed;
-      this.canJump = false;
+    setDirection(x, z) {
+        this.direction.set(x, 0, z).normalize();
+        if (this.direction.length() > 0) {
+            this.velocity.x = this.direction.x * this.speed;
+            this.velocity.z = this.direction.z * this.speed;
+        } else {
+            this.velocity.x = 0;
+            this.velocity.z = 0;
+        }
     }
-  }
 
-  setPosition(pos) {
-    console.log("player 1 mesh before:")
-    console.log(player1.mesh.position)
-    // console.log("player 2 mesh before:")
-    // console.log(player2.mesh.position)
-    this.mesh.position.set(pos.x, pos.y, pos.y);
-    console.log("player 1 mesh after:")
-    console.log(player1.mesh.position)
-    // console.log("player 2 mesh after:")
-    // console.log(player2.mesh.position)
-  }
+    jump() {
+        if (this.canJump) {
+            this.velocity.y = this.jumpSpeed;
+            this.canJump = false;
+        }
+    }
+
+    setPosition(pos) {
+        console.log(`Player ${this.id} mesh before:`, this.mesh.position);
+        // Fix to use the correct axes, ensuring Z is used correctly
+        this.mesh.position.set(pos.x, pos.y, pos.z);
+        console.log(`Player ${this.id} mesh after:`, this.mesh.position);
+    }
 }
 
 // Initialize Players
@@ -213,145 +200,138 @@ const keysPressed = {};
 
 // Event Listeners for Key Presses
 document.addEventListener('keydown', (event) => {
-  keysPressed[event.code] = true;
+    keysPressed[event.code] = true;
 
-  // Player 1 Jump
-  if (event.code === 'Space' && playerID === 'player1') {
-    player1.jump();
-    sendInput({ action: 'jump' });
-  }
-
-  // Player 2 Jump
-  if (event.code === 'KeyO' && playerID === 'player2') {
-    player2.jump();
-    sendInput({ action: 'jump' });
-  }
+    // Jump logic
+    if (event.code === 'Space' && playerID === 'player1') {
+        player1.jump();
+        sendInput({ action: 'jump' });
+    }
+    if (event.code === 'KeyO' && playerID === 'player2') {
+        player2.jump();
+        sendInput({ action: 'jump' });
+    }
 });
 
 document.addEventListener('keyup', (event) => {
-  keysPressed[event.code] = false;
+    keysPressed[event.code] = false;
 });
 
 // Send Player Input to Server
 function sendInput(input) {
-  console.log("Sending input: ", input); 
-  if (socket && socket.readyState === WebSocket.OPEN && playerID) {
-    socket.send(JSON.stringify({
-      type: MESSAGE_TYPES.PLAYER_INPUT,
-      action: input.action,
-      direction: input.direction || null
-    }));
-  }
+    console.log("Sending input: ", input);
+    if (socket && socket.readyState === WebSocket.OPEN && playerID) {
+        socket.send(JSON.stringify({
+            type: MESSAGE_TYPES.PLAYER_INPUT,
+            action: input.action,
+            direction: input.direction || null
+        }));
+    }
 }
-
-// Define player identifiers
-// playerID is set when joining a lobby
-// It determines whether this client controls player1 or player2
 
 // Animation Loop
 const clock = new THREE.Clock();
 
 function animate() {
-  requestAnimationFrame(animate);
+    requestAnimationFrame(animate);
+    const delta = clock.getDelta();
 
-  const delta = clock.getDelta();
-
-  // Handle player1 controls
-  if (playerID === 'player1') {
-    let p1x = 0, p1z = 0;
-    if (keysPressed['KeyW'] || keysPressed['ArrowUp']) p1z -= 1;
-    if (keysPressed['KeyS'] || keysPressed['ArrowDown']) p1z += 1;
-    if (keysPressed['KeyA'] || keysPressed['ArrowLeft']) p1x -= 1;
-    if (keysPressed['KeyD'] || keysPressed['ArrowRight']) p1x += 1;
-    player1.setDirection(p1x, p1z);
-    if (p1x !== 0 || p1z !== 0) {
-      sendInput({
-        action: 'move',
-        direction: { x: p1x, z: p1z }
-      });
+    // Handle player controls
+    if (playerID === 'player1') {
+        handlePlayerControls(player1, {
+            up: 'KeyW',
+            down: 'KeyS',
+            left: 'KeyA',
+            right: 'KeyD'
+        });
     }
-  }
 
-  // Handle player2 controls
-  if (playerID === 'player2') {
-    let p2x = 0, p2z = 0;
-    if (keysPressed['KeyI']) p2z -= 1;
-    if (keysPressed['KeyK']) p2z += 1;
-    if (keysPressed['KeyJ']) p2x -= 1;
-    if (keysPressed['KeyL']) p2x += 1;
-    player2.setDirection(p2x, p2z);
-    if (p2x !== 0 || p2z !== 0) {
-      sendInput({
-        action: 'move',
-        direction: { x: p2x, z: p2z }
-      });
+    if (playerID === 'player2') {
+        handlePlayerControls(player2, {
+            up: 'KeyI',
+            down: 'KeyK',
+            left: 'KeyJ',
+            right: 'KeyL'
+        });
     }
-  }
 
-  // Update players
-  player1.update(delta);
-  player2.update(delta);
+    // Update players
+    player1.update(delta);
+    player2.update(delta);
 
-  // Update camera
-  updateCamera();
+    // Debugging log for player positions
+    //console.log(`Player 1 Position: ${player1.mesh.position.x}, ${player1.mesh.position.y}, ${player1.mesh.position.z}`);
+    //console.log(`Player 2 Position: ${player2.mesh.position.x}, ${player2.mesh.position.y}, ${player2.mesh.position.z}`);
 
-  renderer.render(scene, camera);
+    // Update camera to follow the active player
+    updateCamera();
+
+    renderer.render(scene, camera);
 }
 
-animate();
+function handlePlayerControls(player, controls) {
+    let x = 0, z = 0;
 
-// Update Camera to follow the active player
+    if (keysPressed[controls.up]) z -= 1;
+    if (keysPressed[controls.down]) z += 1;
+    if (keysPressed[controls.left]) x -= 1;
+    if (keysPressed[controls.right]) x += 1;
+
+    player.setDirection(x, z);
+    if (x !== 0 || z !== 0) {
+        sendInput({
+            action: 'move',
+            direction: { x: x, z: z }
+        });
+    }
+}
+
 function updateCamera() {
-  // Ensure player mesh positions are valid before setting camera positions
-  if (playerID === 'player1') {
-      if (player1.mesh.position) {
-          camera.position.x = player1.mesh.position.x || 0; // Default to 0 if NaN
-          camera.position.y = player1.mesh.position.y + 20 || 20; // Default to 20 if NaN
-          camera.position.z = player1.mesh.position.z + 30 || 30; // Default to 30 if NaN
-          camera.lookAt(player1.mesh.position);
-      }
-  } else if (playerID === 'player2') {
-      if (player2.mesh.position) {
-          camera.position.x = player2.mesh.position.x || 0; // Default to 0 if NaN
-          camera.position.y = player2.mesh.position.y + 20 || 20; // Default to 20 if NaN
-          camera.position.z = player2.mesh.position.z + 30 || 30; // Default to 30 if NaN
-          camera.lookAt(player2.mesh.position);
-      }
-  }
+    if (playerID === 'player1') {
+        camera.position.set(player1.mesh.position.x, player1.mesh.position.y + 20, player1.mesh.position.z + 30);
+        camera.lookAt(player1.mesh.position);
+    } else if (playerID === 'player2') {
+        camera.position.set(player2.mesh.position.x, player2.mesh.position.y + 20, player2.mesh.position.z + 30);
+        camera.lookAt(player2.mesh.position);
+    }
 }
 
-// Placeholder function to update game state
+// Update the game state with the latest data from the server
 function updateGameState(state) {
-  
-   // Update player positions
-  if (state.player1 && state.player1.position) {
-      //console.log("update player 1")
-      //console.log(state.player1)
-      player1.setPosition(state.player1.position);
-  }
-  if (state.player2 && state.player2.position) {
-      //console.log("update player 2")
-      //console.log(state.player2)
-      player2.setPosition(state.player2.position);
-  }
+    console.log("Updating game state:", state); // Log the entire state update for debugging
 
-  // Update platform positions
-  if (state.platforms) {
-    updatePlatforms(state.platforms);
-  }
+    if (state.player1 && state.player1.position) {
+        player1.setPosition(state.player1.position);
+    }
+    if (state.player2 && state.player2.position) {
+        player2.setPosition(state.player2.position);
+    }
+
+    // Debugging log to check updated player positions
+    console.log(`Updated Player 1 Position: ${player1.mesh.position.x}, ${player1.mesh.position.y}, ${player1.mesh.position.z}`);
+    console.log(`Updated Player 2 Position: ${player2.mesh.position.x}, ${player2.mesh.position.y}, ${player2.mesh.position.z}`);
+    
+    // Update platform positions if provided
+    if (state.platforms) {
+        updatePlatforms(state.platforms);
+    }
 }
 
+// Function to update platform states
 function updatePlatforms(platformPositions) {
-  // Remove existing platforms
-  scene.children = scene.children.filter(child => child.userData.type !== 'platform');
+    // Remove existing platforms
+    scene.children = scene.children.filter(child => child.userData.type !== 'platform');
 
-  // Create new platforms based on server data
-  platformPositions.forEach(pos => {
-      const platformGeometry = new THREE.BoxGeometry(10, 1, 10);
-      const platformMaterial = new THREE.MeshStandardMaterial({ color: 0x8B0000 });
-      const platform = new THREE.Mesh(platformGeometry, platformMaterial);
-      platform.position.set(pos.x, pos.y, pos.z);
-      platform.userData.type = 'platform';
-      scene.add(platform);
-  });
+    // Create new platforms based on server data
+    platformPositions.forEach(pos => {
+        const platformGeometry = new THREE.BoxGeometry(10, 1, 10);
+        const platformMaterial = new THREE.MeshStandardMaterial({ color: 0x8B0000 });
+        const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+        platform.position.set(pos.x, pos.y, pos.z);
+        platform.userData.type = 'platform';
+        scene.add(platform);
+    });
 }
+
+// Start the animation loop
+animate();
