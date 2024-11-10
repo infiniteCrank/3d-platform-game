@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
@@ -354,7 +355,7 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 	lobby := c.lobby
 	lobby.mutex.Lock()
 	defer lobby.mutex.Unlock()
-
+	fmt.Printf("Player 1 before: %+v \n", lobby.state.Player1.Position)
 	switch input.Action {
 	case "move":
 		if input.Direction != nil {
@@ -374,7 +375,7 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 			lobby.state.Player2.Position.Y += 1 // Simplistic jump
 		}
 	}
-
+	fmt.Printf("Player 1 after: %+v \n", lobby.state.Player1.Position)
 	// Broadcast updated state to all clients in the lobby
 	stateBytes, err := json.Marshal(map[string]interface{}{
 		"type":  "game_state",

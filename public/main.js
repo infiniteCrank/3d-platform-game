@@ -189,7 +189,15 @@ class Player {
   }
 
   setPosition(pos) {
-    this.mesh.position.set(pos.X, pos.Y, pos.Z);
+    console.log("player 1 mesh before:")
+    console.log(player1.mesh.position)
+    // console.log("player 2 mesh before:")
+    // console.log(player2.mesh.position)
+    this.mesh.position.set(pos.x, pos.y, pos.y);
+    console.log("player 1 mesh after:")
+    console.log(player1.mesh.position)
+    // console.log("player 2 mesh after:")
+    // console.log(player2.mesh.position)
   }
 }
 
@@ -226,6 +234,7 @@ document.addEventListener('keyup', (event) => {
 
 // Send Player Input to Server
 function sendInput(input) {
+  console.log("Sending input: ", input); 
   if (socket && socket.readyState === WebSocket.OPEN && playerID) {
     socket.send(JSON.stringify({
       type: MESSAGE_TYPES.PLAYER_INPUT,
@@ -313,15 +322,17 @@ function updateCamera() {
 
 // Placeholder function to update game state
 function updateGameState(state) {
-
+  
    // Update player positions
-  if (state.Player1 && state.Player1.Position) {
-    console.log("update player 1")
-      player1.setPosition(state.Player1.Position);
+  if (state.player1 && state.player1.position) {
+      //console.log("update player 1")
+      //console.log(state.player1)
+      player1.setPosition(state.player1.position);
   }
-  if (state.Player2 && state.Player2.Position) {
-      player2.setPosition(state.Player2.Position);
-      console.log("update player 2")
+  if (state.player2 && state.player2.position) {
+      //console.log("update player 2")
+      //console.log(state.player2)
+      player2.setPosition(state.player2.position);
   }
 
   // Update platform positions
