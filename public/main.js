@@ -135,12 +135,11 @@ class Player {
         this.mesh = new THREE.Mesh(geometry, material);
         this.mesh.position.y = 2;
         scene.add(this.mesh);
-
         // Movement properties
         this.velocity = new THREE.Vector3();
         this.direction = new THREE.Vector3();
         this.speed = 10;
-        this.jumpSpeed = 15;
+        this.jumpSpeed = 5; // Set jump speed for the player
         this.canJump = false;
 
         // Player ID
@@ -153,6 +152,9 @@ class Player {
 
         // Update position
         this.mesh.position.addScaledVector(this.velocity, delta);
+
+        // Check for collision with platforms
+        checkPlatformCollision(this);
 
         // Collision with ground
         if (this.mesh.position.y <= 2) {
@@ -182,7 +184,6 @@ class Player {
 
     setPosition(pos) {
         console.log(`Player ${this.id} mesh before:`, this.mesh.position);
-        // Fix to use the correct axes, ensuring Z is used correctly
         this.mesh.position.set(pos.x, pos.y, pos.z);
         console.log(`Player ${this.id} mesh after:`, this.mesh.position);
     }
@@ -259,10 +260,6 @@ function animate() {
     player1.update(delta);
     player2.update(delta);
 
-    // Debugging log for player positions
-    //console.log(`Player 1 Position: ${player1.mesh.position.x}, ${player1.mesh.position.y}, ${player1.mesh.position.z}`);
-    //console.log(`Player 2 Position: ${player2.mesh.position.x}, ${player2.mesh.position.y}, ${player2.mesh.position.z}`);
-
     // Update camera to follow the active player
     updateCamera();
 
@@ -307,17 +304,12 @@ function updateGameState(state) {
         player2.setPosition(state.player2.position);
     }
 
-    // Debugging log to check updated player positions
-    console.log(`Updated Player 1 Position: ${player1.mesh.position.x}, ${player1.mesh.position.y}, ${player1.mesh.position.z}`);
-    console.log(`Updated Player 2 Position: ${player2.mesh.position.x}, ${player2.mesh.position.y}, ${player2.mesh.position.z}`);
-    
     // Update platform positions if provided
     if (state.platforms) {
         updatePlatforms(state.platforms);
     }
 }
 
-// Function to update platform states
 function updatePlatforms(platformPositions) {
     // Remove existing platforms
     scene.children = scene.children.filter(child => child.userData.type !== 'platform');
@@ -329,7 +321,26 @@ function updatePlatforms(platformPositions) {
         const platform = new THREE.Mesh(platformGeometry, platformMaterial);
         platform.position.set(pos.x, pos.y, pos.z);
         platform.userData.type = 'platform';
+        platform.userData.height = 1; // Assign height if necessary for collision detection
         scene.add(platform);
+    });
+}
+
+// Check for collisions with platforms
+function checkPlatformCollision(player) {
+    const playerBox = new THREE.Box3().setFromObject(player.mesh);
+    scene.children.forEach(child => {
+        if (child.userData.type === 'platform') {
+            const platformBox = new THREE.Box3().setFromObject(child);
+            if (playerBox.intersectsBox(platformBox)) {
+                // If the player is falling, land on the platform
+                if (player.velocity.y < 0) {
+                    player.mesh.position.y = child.position.y + child.userData.height; // Land on top
+                    player.velocity.y = 0; // Reset vertical velocity
+                    player.canJump = true; // Allow jumping again
+                }
+            }
+        }
     });
 }
 

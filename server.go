@@ -375,18 +375,28 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 		}
 	}
 
-	// Apply some gravity (for simplicity we keep it constant here)
+	// Apply some gravity
 	if lobby.state.Player1.Position.Y > 2 {
 		lobby.state.Player1.Position.Y -= 0.2 // Simulates gravity effect.
+		for _, platform := range lobby.state.Platforms {
+			if collidesWithPlatform(lobby.state.Player1.Position, platform) {
+				lobby.state.Player1.Position.Y = platform.Y + 1 // Land on top of the platform
+			}
+		}
 		if lobby.state.Player1.Position.Y < 2 {
-			lobby.state.Player1.Position.Y = 2 // Reset the position to ground level
+			lobby.state.Player1.Position.Y = 2 // Reset to ground level
 		}
 	}
 
 	if lobby.state.Player2.Position.Y > 2 {
 		lobby.state.Player2.Position.Y -= 0.2 // Simulates gravity effect.
+		for _, platform := range lobby.state.Platforms {
+			if collidesWithPlatform(lobby.state.Player2.Position, platform) {
+				lobby.state.Player2.Position.Y = platform.Y + 1 // Land on top of the platform
+			}
+		}
 		if lobby.state.Player2.Position.Y < 2 {
-			lobby.state.Player2.Position.Y = 2 // Reset the position to ground level
+			lobby.state.Player2.Position.Y = 2 // Reset to ground level
 		}
 	}
 
@@ -400,6 +410,14 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 		return
 	}
 	lobby.broadcast <- stateBytes
+}
+
+// Collision detection function
+func collidesWithPlatform(playerPos Position, platform Position) bool {
+	// Simple AABB collision detection
+	return playerPos.X >= platform.X-5 && playerPos.X <= platform.X+5 &&
+		playerPos.Z >= platform.Z-5 && playerPos.Z <= platform.Z+5 &&
+		playerPos.Y <= platform.Y+1 // Allow slight overlap for landing
 }
 
 // Generate a unique lobby ID.
