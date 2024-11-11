@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
@@ -355,7 +354,7 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 	lobby := c.lobby
 	lobby.mutex.Lock()
 	defer lobby.mutex.Unlock()
-	fmt.Printf("Player 1 before: %+v \n", lobby.state.Player1.Position)
+
 	switch input.Action {
 	case "move":
 		if input.Direction != nil {
@@ -369,13 +368,28 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 			}
 		}
 	case "jump":
-		if c.playerID == "player1" {
-			lobby.state.Player1.Position.Y += 1 // Simplistic jump
-		} else if c.playerID == "player2" {
-			lobby.state.Player2.Position.Y += 1 // Simplistic jump
+		if c.playerID == "player1" && lobby.state.Player1.Position.Y <= 2 { // Assuming ground level is 2
+			lobby.state.Player1.Position.Y += 5 // Set to a value to simulate the jump height.
+		} else if c.playerID == "player2" && lobby.state.Player2.Position.Y <= 2 {
+			lobby.state.Player2.Position.Y += 5 // Same here
 		}
 	}
-	fmt.Printf("Player 1 after: %+v \n", lobby.state.Player1.Position)
+
+	// Apply some gravity (for simplicity we keep it constant here)
+	if lobby.state.Player1.Position.Y > 2 {
+		lobby.state.Player1.Position.Y -= 0.2 // Simulates gravity effect.
+		if lobby.state.Player1.Position.Y < 2 {
+			lobby.state.Player1.Position.Y = 2 // Reset the position to ground level
+		}
+	}
+
+	if lobby.state.Player2.Position.Y > 2 {
+		lobby.state.Player2.Position.Y -= 0.2 // Simulates gravity effect.
+		if lobby.state.Player2.Position.Y < 2 {
+			lobby.state.Player2.Position.Y = 2 // Reset the position to ground level
+		}
+	}
+
 	// Broadcast updated state to all clients in the lobby
 	stateBytes, err := json.Marshal(map[string]interface{}{
 		"type":  "game_state",
