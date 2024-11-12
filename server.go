@@ -104,12 +104,13 @@ func newLobby(id string) *Lobby {
 	}
 }
 
+// Generate random platforms for the game
 func generateRandomPlatforms(count int) []Position {
 	platforms := make([]Position, count)
 	for i := 0; i < count; i++ {
 		platforms[i] = Position{
 			X: (rand.Float64() * 180) - 90,
-			Y: (rand.Float64() * 40) + 5,
+			Y: (rand.Float64() * 40) + 5, // Height above ground
 			Z: (rand.Float64() * 180) - 90,
 		}
 	}
@@ -123,7 +124,6 @@ func (s *Server) runLobby(lobby *Lobby) {
 		case client := <-lobby.register:
 			lobby.clients[client] = true
 			log.Printf("Client registered to Lobby %s as %s", lobby.ID, client.playerID)
-			// Send initial game state to the newly joined client
 			lobby.sendState(client)
 			// If the lobby is full, start the game
 			if len(lobby.clients) == 2 {
@@ -145,7 +145,6 @@ func (s *Server) runLobby(lobby *Lobby) {
 
 // Broadcast to all clients safely.
 func (l *Lobby) broadcastToClients(message []byte) {
-	// Lock the lobby mutex to safely iterate over clients
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
@@ -355,24 +354,27 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 	lobby.mutex.Lock()
 	defer lobby.mutex.Unlock()
 
-	// Apply gravity and handle jump logic
+	// Apply gravity and handle jumping
 	gravity := 0.2
 	if c.playerID == "player1" {
-		lobby.state.Player1.Position.Y -= gravity // Apply gravity continuously
-		if lobby.state.Player1.Position.Y < 2 {   // Check against ground level
-			lobby.state.Player1.Position.Y = 2 // Reset to ground level
-		}
+		lobby.state.Player1.Position.Y -= gravity
 	} else if c.playerID == "player2" {
-		lobby.state.Player2.Position.Y -= gravity // Apply gravity continuously
-		if lobby.state.Player2.Position.Y < 2 {   // Check against ground level
-			lobby.state.Player2.Position.Y = 2 // Reset to ground level
-		}
+		lobby.state.Player2.Position.Y -= gravity
+	}
+
+	// Ensure the player's Y position doesn't fall below ground level
+	if lobby.state.Player1.Position.Y < 2 {
+		lobby.state.Player1.Position.Y = 2
+	}
+
+	if lobby.state.Player2.Position.Y < 2 {
+		lobby.state.Player2.Position.Y = 2
 	}
 
 	switch input.Action {
 	case "move":
+		moveAmount := 0.5 // Adjust movement scaling as needed
 		if input.Direction != nil {
-			moveAmount := 0.5 // Adjust movement scaling as needed
 			if c.playerID == "player1" {
 				lobby.state.Player1.Position.X += input.Direction.X * moveAmount
 				lobby.state.Player1.Position.Z += input.Direction.Z * moveAmount
@@ -382,10 +384,10 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 			}
 		}
 	case "jump":
-		if c.playerID == "player1" && lobby.state.Player1.Position.Y <= 2 { // Check if at ground level
-			lobby.state.Player1.Position.Y += 4 // Set to a value to simulate jump height
+		if c.playerID == "player1" && lobby.state.Player1.Position.Y <= 2 {
+			lobby.state.Player1.Position.Y += 4 // Simulate jump height
 		} else if c.playerID == "player2" && lobby.state.Player2.Position.Y <= 2 {
-			lobby.state.Player2.Position.Y += 4 // Same for player 2
+			lobby.state.Player2.Position.Y += 4 // Simulate jump height
 		}
 	}
 
@@ -407,26 +409,24 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 // HandlePlatformCollision checks player positions against platforms
 func handlePlatformCollision(lobby *Lobby) {
 	for _, platform := range lobby.state.Platforms {
-		// Check player 1's collision with the platform.
+		// Check player 1's collision with the platform
 		if lobby.state.Player1.Position.X >= platform.X-5 && lobby.state.Player1.Position.X <= platform.X+5 &&
 			lobby.state.Player1.Position.Z >= platform.Z-5 && lobby.state.Player1.Position.Z <= platform.Z+5 {
-
-			// Only adjust position if the player is falling
-			if lobby.state.Player1.Position.Y <= platform.Y+1 { // Close enough to land on it
-				if lobby.state.Player1.Position.Y+1 >= platform.Y { // Ensure player is above the platform
-					lobby.state.Player1.Position.Y = platform.Y + 1 // Land on top without overlap
+			// Only adjust position if the player is truly falling
+			if lobby.state.Player1.Position.Y <= platform.Y+1 {
+				if lobby.state.Player1.Position.Y+1 >= platform.Y {
+					lobby.state.Player1.Position.Y = platform.Y + 1 // Set position just above the platform
 				}
 			}
 		}
 
-		// Check player 2's collision with the platform.
+		// Check player 2's collision with the platform
 		if lobby.state.Player2.Position.X >= platform.X-5 && lobby.state.Player2.Position.X <= platform.X+5 &&
 			lobby.state.Player2.Position.Z >= platform.Z-5 && lobby.state.Player2.Position.Z <= platform.Z+5 {
-
-			// Only adjust position if the player is falling
-			if lobby.state.Player2.Position.Y <= platform.Y+1 { // Close enough to land on it
-				if lobby.state.Player2.Position.Y+1 >= platform.Y { // Ensure player is above the platform
-					lobby.state.Player2.Position.Y = platform.Y + 1 // Land on top without overlap
+			// Only adjust position if the player is truly falling
+			if lobby.state.Player2.Position.Y <= platform.Y+1 {
+				if lobby.state.Player2.Position.Y+1 >= platform.Y {
+					lobby.state.Player2.Position.Y = platform.Y + 1 // Set position just above the platform
 				}
 			}
 		}
@@ -439,15 +439,16 @@ func generateLobbyID() string {
 	return strconv.Itoa(rand.Intn(100000)) // Simple numeric ID; for better uniqueness, consider using UUIDs.
 }
 
+// Main function to run the server
 func main() {
 	server := newServer()
 
-	http.HandleFunc("/ws", server.handleConnections)
+	http.HandleFunc("/ws", server.handleConnections)        // Handle WebSocket connections
 	http.Handle("/", http.FileServer(http.Dir("./public"))) // Serve client files
 
 	log.Println("Server started on :8080")
-	err := http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":8080", nil) // Start listening on port 8080
 	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+		log.Fatal("ListenAndServe: ", err) // Log any errors starting the server
 	}
 }

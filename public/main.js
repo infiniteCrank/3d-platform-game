@@ -184,7 +184,7 @@ class Player {
     }
 
     setPosition(pos) {
-        // If position sent by server, update without overlap adjustments
+        // Update position exactly as per server instructions
         this.mesh.position.set(pos.x, pos.y, pos.z);
     }
 }
@@ -239,121 +239,124 @@ function animate() {
 
     // Handle player controls
     if (playerID === 'player1') {
-        handlePlayerControls(player1, {
-            up: 'KeyW',
-            down: 'KeyS',
-            left: 'KeyA',
-            right: 'KeyD'
-        });
-    }
-
-    if (playerID === 'player2') {
-        handlePlayerControls(player2, {
-            up: 'KeyI',
-            down: 'KeyK',
-            left: 'KeyJ',
-            right: 'KeyL'
-        });
-    }
-
-    // Update players
-    player1.update(delta);
-    player2.update(delta);
-
-    // Update camera to follow the active player
-    updateCamera();
-
-    renderer.render(scene, camera);
+      handlePlayerControls(player1, {
+        up: 'KeyW',
+        down: 'KeyS',
+        left: 'KeyA',
+        right: 'KeyD'
+    });
 }
 
+if (playerID === 'player2') {
+    handlePlayerControls(player2, {
+        up: 'KeyI',
+        down: 'KeyK',
+        left: 'KeyJ',
+        right: 'KeyL'
+    });
+}
+
+// Update players
+player1.update(delta);
+player2.update(delta);
+
+// Update camera to follow the active player
+updateCamera();
+
+// Render the scene
+renderer.render(scene, camera);
+}
+
+// Handle Player Controls Function
 function handlePlayerControls(player, controls) {
-    let x = 0, z = 0;
+let x = 0, z = 0;
 
-    if (keysPressed[controls.up]) z -= 1;
-    if (keysPressed[controls.down]) z += 1;
-    if (keysPressed[controls.left]) x -= 1;
-    if (keysPressed[controls.right]) x += 1;
+// Check for input to adjust movement
+if (keysPressed[controls.up]) z -= 1; // Move forward
+if (keysPressed[controls.down]) z += 1; // Move backward
+if (keysPressed[controls.left]) x -= 1; // Move left
+if (keysPressed[controls.right]) x += 1; // Move right
 
-    player.setDirection(x, z);
-    if (x !== 0 || z !== 0) {
-        sendInput({
-            action: 'move',
-            direction: { x: x, z: z }
-        });
-    }
+player.setDirection(x, z); // Update player direction based on keys pressed
+if (x !== 0 || z !== 0) {
+    sendInput({
+        action: 'move',
+        direction: { x: x, z: z } // Send movement direction to server
+    });
+}
 }
 
-// Update Camera
+// Update Camera Function
 function updateCamera() {
-    if (playerID === 'player1') {
-        camera.position.set(player1.mesh.position.x, player1.mesh.position.y + 20, player1.mesh.position.z + 30);
-        camera.lookAt(player1.mesh.position);
-    } else if (playerID === 'player2') {
-        camera.position.set(player2.mesh.position.x, player2.mesh.position.y + 20, player2.mesh.position.z + 30);
-        camera.lookAt(player2.mesh.position);
-    }
+// Set camera position to follow the player
+if (playerID === 'player1') {
+    camera.position.set(player1.mesh.position.x, player1.mesh.position.y + 20, player1.mesh.position.z + 30);
+    camera.lookAt(player1.mesh.position);
+} else if (playerID === 'player2') {
+    camera.position.set(player2.mesh.position.x, player2.mesh.position.y + 20, player2.mesh.position.z + 30);
+    camera.lookAt(player2.mesh.position);
+}
 }
 
 // Update the game state with the latest data from the server
 function updateGameState(state) {
-    console.log("Updating game state:", state); // Log the entire state update for debugging
+console.log("Updating game state:", state); // Log the entire state update for debugging
 
-    if (state.player1 && state.player1.position) {
-        player1.setPosition(state.player1.position);
-    }
-    if (state.player2 && state.player2.position) {
-        player2.setPosition(state.player2.position);
-    }
-
-    // Update platform positions if provided
-    if (state.platforms) {
-        updatePlatforms(state.platforms);
-    }
+if (state.player1 && state.player1.position) {
+    player1.setPosition(state.player1.position); // Update player 1 position
+}
+if (state.player2 && state.player2.position) {
+    player2.setPosition(state.player2.position); // Update player 2 position
 }
 
-function updatePlatforms(platformPositions) {
-    // Remove existing platforms
-    scene.children = scene.children.filter(child => child.userData.type !== 'platform');
+// Update platform positions if provided
+if (state.platforms) {
+    updatePlatforms(state.platforms);
+}
+}
 
-    // Create new platforms based on server data
-    platformPositions.forEach(pos => {
-        const platformGeometry = new THREE.BoxGeometry(10, 1, 10); // Adjust size as needed
-        const platformMaterial = new THREE.MeshStandardMaterial({ color: 0x8B0000 });
-        const platform = new THREE.Mesh(platformGeometry, platformMaterial);
-        platform.position.set(pos.x, pos.y, pos.z);
-        platform.userData.type = 'platform';
-        scene.add(platform);
-    });
+// Update platforms in the scene
+function updatePlatforms(platformPositions) {
+// Remove existing platforms
+scene.children = scene.children.filter(child => child.userData.type !== 'platform');
+
+// Create new platforms based on server data
+platformPositions.forEach(pos => {
+    const platformGeometry = new THREE.BoxGeometry(10, 1, 10); // Define platform dimensions
+    const platformMaterial = new THREE.MeshStandardMaterial({ color: 0x8B0000 });
+    const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+    platform.position.set(pos.x, pos.y, pos.z);
+    platform.userData.type = 'platform'; // Mark as platform for collision detection
+    scene.add(platform); // Add platform to the scene
+});
 }
 
 // Check for collisions with platforms
 function checkPlatformCollision(player) {
-  const playerBox = new THREE.Box3().setFromObject(player.mesh);
-  let isOnPlatform = false; // Track if the player is on a platform
+const playerBox = new THREE.Box3().setFromObject(player.mesh);
+let isOnPlatform = false; // Track if the player is on a platform
 
-  scene.children.forEach(child => {
-      if (child.userData.type === 'platform') {
-          const platformBox = new THREE.Box3().setFromObject(child);
+scene.children.forEach(child => {
+    if (child.userData.type === 'platform') {
+        const platformBox = new THREE.Box3().setFromObject(child);
+        if (playerBox.intersectsBox(platformBox)) {
+            // Check if the player is falling onto the platform
+            if (player.velocity.y < 0) {
+                player.mesh.position.y = child.position.y + 1; // Land on top of the platform
+                player.velocity.y = 0; // Reset vertical velocity
+                isOnPlatform = true; // Mark player as on platform
+            }
+        }
+    }
+});
 
-          if (playerBox.intersectsBox(platformBox)) {
-              // Check if the player is falling onto the platform
-              if (player.velocity.y < 0 && player.mesh.position.y < child.position.y) {
-                  // Adjust position so the player sits correctly on the platform
-                  player.mesh.position.y = child.position.y + 1; // Land on top without overlap
-                  player.velocity.y = 0; // Reset vertical velocity
-                  isOnPlatform = true; // Mark player as on platform
-              }
-          }
-      }
-  });
-
-  // If the player isn't on any platform, check for ground contact
-  if (!isOnPlatform && player.mesh.position.y <= 2) {
-      player.mesh.position.y = 2; // Reset to ground level
-      player.velocity.y = 0; // Reset vertical velocity
-      player.canJump = true; // Player can jump if they are back on the ground
-  } else if (isOnPlatform) {
-      player.canJump = true; // Allow jumping if standing on a platform
+// If not on any platform, check for ground contact
+if (!isOnPlatform && player.mesh.position.y <= 2) {
+    player.mesh.position.y = 2; // Set Y to ground level
+    player.velocity.y = 0; // Reset vertical velocity
+    player.canJump = true; // Allow jumping again from the ground
+} else if (isOnPlatform) {
+    player.canJump = true; // Allow jumping if on a platform
   }
 }
 
