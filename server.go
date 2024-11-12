@@ -407,17 +407,33 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 // HandlePlatformCollision checks player positions against platforms
 func handlePlatformCollision(lobby *Lobby) {
 	for _, platform := range lobby.state.Platforms {
+		// Check player 1's collision with the platform.
 		if lobby.state.Player1.Position.X >= platform.X-5 && lobby.state.Player1.Position.X <= platform.X+5 &&
 			lobby.state.Player1.Position.Z >= platform.Z-5 && lobby.state.Player1.Position.Z <= platform.Z+5 {
-			if lobby.state.Player1.Position.Y <= platform.Y+1 { // Check collision
-				lobby.state.Player1.Position.Y = platform.Y + 1 // Land on top of the platform
+
+			// Check if player is falling (i.e., the player's Y must be less than the platform's Y)
+			if lobby.state.Player1.Position.Y+1 >= platform.Y { // Player is at or above platform height
+				if lobby.state.Player1.Position.Y <= platform.Y+1 { // Close enough to land on it
+					// Only land if the player is falling
+					if lobby.state.Player1.Position.Y <= platform.Y {
+						lobby.state.Player1.Position.Y = platform.Y + 1 // Land on top of the platform
+					}
+				}
 			}
 		}
 
+		// Check player 2's collision with the platform.
 		if lobby.state.Player2.Position.X >= platform.X-5 && lobby.state.Player2.Position.X <= platform.X+5 &&
 			lobby.state.Player2.Position.Z >= platform.Z-5 && lobby.state.Player2.Position.Z <= platform.Z+5 {
-			if lobby.state.Player2.Position.Y <= platform.Y+1 { // Check collision
-				lobby.state.Player2.Position.Y = platform.Y + 1 // Land on top of the platform
+
+			// Check if player is falling (i.e., the player's Y must be less than the platform's Y)
+			if lobby.state.Player2.Position.Y+1 >= platform.Y { // Player is at or above platform height
+				if lobby.state.Player2.Position.Y <= platform.Y+1 { // Close enough to land on it
+					// Only land if the player is falling
+					if lobby.state.Player2.Position.Y <= platform.Y {
+						lobby.state.Player2.Position.Y = platform.Y + 1 // Land on top of the platform
+					}
+				}
 			}
 		}
 	}
