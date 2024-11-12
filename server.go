@@ -411,11 +411,11 @@ func handlePlatformCollision(lobby *Lobby) {
 		if lobby.state.Player1.Position.X >= platform.X-5 && lobby.state.Player1.Position.X <= platform.X+5 &&
 			lobby.state.Player1.Position.Z >= platform.Z-5 && lobby.state.Player1.Position.Z <= platform.Z+5 {
 
-			// Check if player 1 is falling onto the platform
-			if lobby.state.Player1.Position.Y <= platform.Y &&
-				lobby.state.Player1.Position.Y+1 > platform.Y { // Only adjust if the player is above the platform
-				// Land on top of the platform without overlap
-				lobby.state.Player1.Position.Y = platform.Y + 1 // Set position to just above the platform
+			// Only adjust position if the player is falling
+			if lobby.state.Player1.Position.Y <= platform.Y+1 { // Close enough to land on it
+				if lobby.state.Player1.Position.Y+1 >= platform.Y { // Ensure player is above the platform
+					lobby.state.Player1.Position.Y = platform.Y + 1 // Land on top without overlap
+				}
 			}
 		}
 
@@ -423,11 +423,11 @@ func handlePlatformCollision(lobby *Lobby) {
 		if lobby.state.Player2.Position.X >= platform.X-5 && lobby.state.Player2.Position.X <= platform.X+5 &&
 			lobby.state.Player2.Position.Z >= platform.Z-5 && lobby.state.Player2.Position.Z <= platform.Z+5 {
 
-			// Check if player 2 is falling onto the platform
-			if lobby.state.Player2.Position.Y <= platform.Y &&
-				lobby.state.Player2.Position.Y+1 > platform.Y { // Only adjust if the player is above the platform
-				// Land on top of the platform without overlap
-				lobby.state.Player2.Position.Y = platform.Y + 1 // Set position to just above the platform
+			// Only adjust position if the player is falling
+			if lobby.state.Player2.Position.Y <= platform.Y+1 { // Close enough to land on it
+				if lobby.state.Player2.Position.Y+1 >= platform.Y { // Ensure player is above the platform
+					lobby.state.Player2.Position.Y = platform.Y + 1 // Land on top without overlap
+				}
 			}
 		}
 	}

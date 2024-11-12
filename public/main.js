@@ -328,32 +328,33 @@ function updatePlatforms(platformPositions) {
 
 // Check for collisions with platforms
 function checkPlatformCollision(player) {
-    const playerBox = new THREE.Box3().setFromObject(player.mesh);
-    let isOnPlatform = false; // Track if the player is on a platform
+  const playerBox = new THREE.Box3().setFromObject(player.mesh);
+  let isOnPlatform = false; // Track if the player is on a platform
 
-    scene.children.forEach(child => {
-        if (child.userData.type === 'platform') {
-            const platformBox = new THREE.Box3().setFromObject(child);
-            if (playerBox.intersectsBox(platformBox)) {
-                // Check if the player is falling onto the platform
-                if (player.velocity.y < 0) {
-                    // Check if they should land on the platform
-                    player.mesh.position.y = child.position.y + 1; // Land on top without overlap
-                    player.velocity.y = 0; // Reset vertical velocity
-                    isOnPlatform = true; // Mark player as on platform
-                }
-            }
-        }
-    });
+  scene.children.forEach(child => {
+      if (child.userData.type === 'platform') {
+          const platformBox = new THREE.Box3().setFromObject(child);
 
-    // If not on any platform after the checks, reset to ground contact behavior
-    if (!isOnPlatform && player.mesh.position.y <= 2) {
-        player.mesh.position.y = 2; // Reset to ground level
-        player.velocity.y = 0; // Reset vertical velocity
-        player.canJump = true; // Player can jump if they are back on the ground
-    } else if (isOnPlatform) {
-        player.canJump = true; // Allow jumping if standing on a platform
-    }
+          if (playerBox.intersectsBox(platformBox)) {
+              // Check if the player is falling onto the platform
+              if (player.velocity.y < 0 && player.mesh.position.y < child.position.y) {
+                  // Adjust position so the player sits correctly on the platform
+                  player.mesh.position.y = child.position.y + 1; // Land on top without overlap
+                  player.velocity.y = 0; // Reset vertical velocity
+                  isOnPlatform = true; // Mark player as on platform
+              }
+          }
+      }
+  });
+
+  // If the player isn't on any platform, check for ground contact
+  if (!isOnPlatform && player.mesh.position.y <= 2) {
+      player.mesh.position.y = 2; // Reset to ground level
+      player.velocity.y = 0; // Reset vertical velocity
+      player.canJump = true; // Player can jump if they are back on the ground
+  } else if (isOnPlatform) {
+      player.canJump = true; // Allow jumping if standing on a platform
+  }
 }
 
 // Start the animation loop
