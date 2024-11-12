@@ -191,52 +191,62 @@ class Player {
 
 // Cube Class
 class Cube {
-  constructor() {
-      const geometry = new THREE.BoxGeometry(1, 1, 1);
-      const material = new THREE.MeshStandardMaterial({ color: 0xffff00 });
-      this.mesh = new THREE.Mesh(geometry, material);
-      this.resetPosition();
-      scene.add(this.mesh);
-  }
+constructor() {
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const material = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+    this.mesh = new THREE.Mesh(geometry, material);
+    this.resetPosition();
+    scene.add(this.mesh);
+    this.isGrounded = false; // Track if the cube is on the ground or a platform
+}
 
-  resetPosition() {
-      this.mesh.position.set(THREE.MathUtils.randFloat(-90, 90), 50, THREE.MathUtils.randFloat(-90, 90)); // Start above the ground
-  }
+resetPosition() {
+    this.mesh.position.set(THREE.MathUtils.randFloat(-90, 90), 50, THREE.MathUtils.randFloat(-90, 90)); // Start above the ground
+    this.isGrounded = false; // Reset grounded state
+}
 
-  update(delta) {
-      this.mesh.position.y -= 10 * delta; // Fall speed
+update(delta) {
+    this.mesh.position.y -= 10 * delta; // Fall speed
 
-      // Check for collisions with the ground and platforms
-      this.checkCollision();
+    // Check for collisions with the ground and platforms
+    this.checkCollision();
 
-      // Reset the position if it goes below ground (for demo purposes)
-      if (this.mesh.position.y < -1) {
-          this.resetPosition();
-      }
-  }
+    // If the cube is still in the air, reset position if it goes below ground (for demo purposes)
+    if (!this.isGrounded && this.mesh.position.y < -1) {
+        this.resetPosition();
+    }
+}
 
-  checkCollision() {
-      const cubeBox = new THREE.Box3().setFromObject(this.mesh);
+checkCollision() {
+    const cubeBox = new THREE.Box3().setFromObject(this.mesh);
 
-      // Check collision with ground
-      const groundBox = new THREE.Box3().setFromObject(ground);
-      if (cubeBox.intersectsBox(groundBox)) {
-          // Prevent the cube from falling below the ground
-          this.mesh.position.y = 1; // Set to just above the ground
-          return;
-      }
+    // Check collision with ground
+    const groundBox = new THREE.Box3().setFromObject(ground);
+    if (!this.isGrounded && cubeBox.intersectsBox(groundBox)) {
+        // Set the cube's Y position just above the ground
+        this.mesh.position.y = 1; // Set to just above the ground
+        this.isGrounded = true;
+        return;
+    }
 
-      // Check collision with platforms
-      scene.children.forEach(child => {
-          if (child.userData.type === 'platform') {
-              const platformBox = new THREE.Box3().setFromObject(child);
-              if (cubeBox.intersectsBox(platformBox)) {
-                  // Set cube on top of the platform
-                  this.mesh.position.y = child.position.y + 1; // Set the cube's y position slightly above the platform
-              }
-          }
-      });
-  }
+    // Check collision with platforms
+    let onPlatform = false; // Track if the cube is on any platform
+    scene.children.forEach(child => {
+        if (child.userData.type === 'platform') {
+            const platformBox = new THREE.Box3().setFromObject(child);
+            if (!this.isGrounded && cubeBox.intersectsBox(platformBox)) {
+                // Set cube on top of the platform
+                this.mesh.position.y = child.position.y + 1; // Set the cube's y position slightly above the platform
+                onPlatform = true; // Mark as on a platform
+            }
+        }
+    });
+
+    // Reset grounded state if not on ground or platform
+    if (!onPlatform) {
+        this.isGrounded = false;
+    }
+}
 }
 
 const cubes = Array.from({ length: 5 }, () => new Cube()); // Create 5 cubes
