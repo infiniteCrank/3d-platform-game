@@ -191,25 +191,52 @@ class Player {
 
 // Cube Class
 class Cube {
-    constructor() {
-        const geometry = new THREE.BoxGeometry(1, 1, 1);
-        const material = new THREE.MeshStandardMaterial({ color: 0xffff00 });
-        this.mesh = new THREE.Mesh(geometry, material);
-        this.resetPosition();
-        scene.add(this.mesh);
-    }
+  constructor() {
+      const geometry = new THREE.BoxGeometry(1, 1, 1);
+      const material = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+      this.mesh = new THREE.Mesh(geometry, material);
+      this.resetPosition();
+      scene.add(this.mesh);
+  }
 
-    resetPosition() {
-        this.mesh.position.set(THREE.MathUtils.randFloat(-90, 90), 50, THREE.MathUtils.randFloat(-90, 90)); // Start above the ground
-    }
+  resetPosition() {
+      this.mesh.position.set(THREE.MathUtils.randFloat(-90, 90), 50, THREE.MathUtils.randFloat(-90, 90)); // Start above the ground
+  }
 
-    update(delta) {
-        this.mesh.position.y -= 10 * delta; // Fall speed
-        // Reset the position if it goes below ground
-        if (this.mesh.position.y < -1) {
-            this.resetPosition();
-        }
-    }
+  update(delta) {
+      this.mesh.position.y -= 10 * delta; // Fall speed
+
+      // Check for collisions with the ground and platforms
+      this.checkCollision();
+
+      // Reset the position if it goes below ground (for demo purposes)
+      if (this.mesh.position.y < -1) {
+          this.resetPosition();
+      }
+  }
+
+  checkCollision() {
+      const cubeBox = new THREE.Box3().setFromObject(this.mesh);
+
+      // Check collision with ground
+      const groundBox = new THREE.Box3().setFromObject(ground);
+      if (cubeBox.intersectsBox(groundBox)) {
+          // Prevent the cube from falling below the ground
+          this.mesh.position.y = 1; // Set to just above the ground
+          return;
+      }
+
+      // Check collision with platforms
+      scene.children.forEach(child => {
+          if (child.userData.type === 'platform') {
+              const platformBox = new THREE.Box3().setFromObject(child);
+              if (cubeBox.intersectsBox(platformBox)) {
+                  // Set cube on top of the platform
+                  this.mesh.position.y = child.position.y + 1; // Set the cube's y position slightly above the platform
+              }
+          }
+      });
+  }
 }
 
 const cubes = Array.from({ length: 5 }, () => new Cube()); // Create 5 cubes
