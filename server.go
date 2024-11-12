@@ -355,6 +355,20 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 	lobby.mutex.Lock()
 	defer lobby.mutex.Unlock()
 
+	// Apply gravity and handle jump logic
+	gravity := 0.2
+	if c.playerID == "player1" {
+		lobby.state.Player1.Position.Y -= gravity // Apply gravity continuously
+		if lobby.state.Player1.Position.Y < 2 {   // Check against ground level
+			lobby.state.Player1.Position.Y = 2 // Reset to ground level
+		}
+	} else if c.playerID == "player2" {
+		lobby.state.Player2.Position.Y -= gravity // Apply gravity continuously
+		if lobby.state.Player2.Position.Y < 2 {   // Check against ground level
+			lobby.state.Player2.Position.Y = 2 // Reset to ground level
+		}
+	}
+
 	switch input.Action {
 	case "move":
 		if input.Direction != nil {
@@ -368,37 +382,15 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 			}
 		}
 	case "jump":
-		if c.playerID == "player1" && lobby.state.Player1.Position.Y <= 2 { // Assuming ground level is 2
-			lobby.state.Player1.Position.Y += 5 // Set to a value to simulate the jump height.
+		if c.playerID == "player1" && lobby.state.Player1.Position.Y <= 2 { // Check if at ground level
+			lobby.state.Player1.Position.Y += 4 // Set to a value to simulate jump height
 		} else if c.playerID == "player2" && lobby.state.Player2.Position.Y <= 2 {
-			lobby.state.Player2.Position.Y += 5 // Same here
+			lobby.state.Player2.Position.Y += 4 // Same for player 2
 		}
 	}
 
-	// Apply some gravity
-	if lobby.state.Player1.Position.Y > 2 {
-		lobby.state.Player1.Position.Y -= 0.2 // Simulates gravity effect.
-		for _, platform := range lobby.state.Platforms {
-			if collidesWithPlatform(lobby.state.Player1.Position, platform) {
-				lobby.state.Player1.Position.Y = platform.Y + 1 // Land on top of the platform
-			}
-		}
-		if lobby.state.Player1.Position.Y < 2 {
-			lobby.state.Player1.Position.Y = 2 // Reset to ground level
-		}
-	}
-
-	if lobby.state.Player2.Position.Y > 2 {
-		lobby.state.Player2.Position.Y -= 0.2 // Simulates gravity effect.
-		for _, platform := range lobby.state.Platforms {
-			if collidesWithPlatform(lobby.state.Player2.Position, platform) {
-				lobby.state.Player2.Position.Y = platform.Y + 1 // Land on top of the platform
-			}
-		}
-		if lobby.state.Player2.Position.Y < 2 {
-			lobby.state.Player2.Position.Y = 2 // Reset to ground level
-		}
-	}
+	// Handle collisions with platforms
+	handlePlatformCollision(lobby)
 
 	// Broadcast updated state to all clients in the lobby
 	stateBytes, err := json.Marshal(map[string]interface{}{
@@ -412,12 +404,23 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 	lobby.broadcast <- stateBytes
 }
 
-// Collision detection function
-func collidesWithPlatform(playerPos Position, platform Position) bool {
-	// Simple AABB collision detection
-	return playerPos.X >= platform.X-5 && playerPos.X <= platform.X+5 &&
-		playerPos.Z >= platform.Z-5 && playerPos.Z <= platform.Z+5 &&
-		playerPos.Y <= platform.Y+1 // Allow slight overlap for landing
+// HandlePlatformCollision checks player positions against platforms
+func handlePlatformCollision(lobby *Lobby) {
+	for _, platform := range lobby.state.Platforms {
+		if lobby.state.Player1.Position.X >= platform.X-5 && lobby.state.Player1.Position.X <= platform.X+5 &&
+			lobby.state.Player1.Position.Z >= platform.Z-5 && lobby.state.Player1.Position.Z <= platform.Z+5 {
+			if lobby.state.Player1.Position.Y <= platform.Y+1 { // Check collision
+				lobby.state.Player1.Position.Y = platform.Y + 1 // Land on top of the platform
+			}
+		}
+
+		if lobby.state.Player2.Position.X >= platform.X-5 && lobby.state.Player2.Position.X <= platform.X+5 &&
+			lobby.state.Player2.Position.Z >= platform.Z-5 && lobby.state.Player2.Position.Z <= platform.Z+5 {
+			if lobby.state.Player2.Position.Y <= platform.Y+1 { // Check collision
+				lobby.state.Player2.Position.Y = platform.Y + 1 // Land on top of the platform
+			}
+		}
+	}
 }
 
 // Generate a unique lobby ID.
