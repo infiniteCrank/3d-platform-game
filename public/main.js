@@ -135,6 +135,7 @@ class Player {
         this.mesh = new THREE.Mesh(geometry, material);
         this.mesh.position.y = 2;
         scene.add(this.mesh);
+
         // Movement properties
         this.velocity = new THREE.Vector3();
         this.direction = new THREE.Vector3();
@@ -160,7 +161,7 @@ class Player {
         if (this.mesh.position.y <= 2) {
             this.mesh.position.y = 2;
             this.velocity.y = 0;
-            this.canJump = true;
+            this.canJump = true; // Player can jump when on the ground
         }
     }
 
@@ -177,8 +178,8 @@ class Player {
 
     jump() {
         if (this.canJump) {
-            this.velocity.y = this.jumpSpeed;
-            this.canJump = false;
+            this.velocity.y = this.jumpSpeed; // Jumps up
+            this.canJump = false; // Prevent further jumps until next landing
         }
     }
 
@@ -266,6 +267,7 @@ function animate() {
     renderer.render(scene, camera);
 }
 
+// Handle Player Controls
 function handlePlayerControls(player, controls) {
     let x = 0, z = 0;
 
@@ -283,66 +285,82 @@ function handlePlayerControls(player, controls) {
     }
 }
 
+// Update Camera
 function updateCamera() {
     if (playerID === 'player1') {
-        camera.position.set(player1.mesh.position.x, player1.mesh.position.y + 20, player1.mesh.position.z + 30);
-        camera.lookAt(player1.mesh.position);
-    } else if (playerID === 'player2') {
-        camera.position.set(player2.mesh.position.x, player2.mesh.position.y + 20, player2.mesh.position.z + 30);
-        camera.lookAt(player2.mesh.position);
-    }
-}
-
-// Update the game state with the latest data from the server
-function updateGameState(state) {
-    console.log("Updating game state:", state); // Log the entire state update for debugging
-
-    if (state.player1 && state.player1.position) {
-        player1.setPosition(state.player1.position);
-    }
-    if (state.player2 && state.player2.position) {
-        player2.setPosition(state.player2.position);
-    }
-
-    // Update platform positions if provided
-    if (state.platforms) {
-        updatePlatforms(state.platforms);
-    }
-}
-
-function updatePlatforms(platformPositions) {
-    // Remove existing platforms
-    scene.children = scene.children.filter(child => child.userData.type !== 'platform');
-
-    // Create new platforms based on server data
-    platformPositions.forEach(pos => {
-        const platformGeometry = new THREE.BoxGeometry(10, 1, 10);
-        const platformMaterial = new THREE.MeshStandardMaterial({ color: 0x8B0000 });
-        const platform = new THREE.Mesh(platformGeometry, platformMaterial);
-        platform.position.set(pos.x, pos.y, pos.z);
-        platform.userData.type = 'platform';
-        platform.userData.height = 1; // Assign height if necessary for collision detection
-        scene.add(platform);
-    });
-}
-
-// Check for collisions with platforms
-function checkPlatformCollision(player) {
-    const playerBox = new THREE.Box3().setFromObject(player.mesh);
-    scene.children.forEach(child => {
-        if (child.userData.type === 'platform') {
-            const platformBox = new THREE.Box3().setFromObject(child);
-            if (playerBox.intersectsBox(platformBox)) {
-                // If the player is falling, land on the platform
-                if (player.velocity.y < 0) {
-                    player.mesh.position.y = child.position.y + child.userData.height; // Land on top
-                    player.velocity.y = 0; // Reset vertical velocity
-                    player.canJump = true; // Allow jumping again
-                }
-            }
-        }
-    });
-}
-
-// Start the animation loop
-animate();
+          camera.position.set(player1.mesh.position.x, player1.mesh.position.y + 20, player1.mesh.position.z + 30);
+          camera.lookAt(player1.mesh.position);
+      } else if (playerID === 'player2') {
+          camera.position.set(player2.mesh.position.x, player2.mesh.position.y + 20, player2.mesh.position.z + 30);
+          camera.lookAt(player2.mesh.position);
+      }
+  }
+  
+  // Update the game state with the latest data from the server
+  function updateGameState(state) {
+      console.log("Updating game state:", state); // Log the entire state update for debugging
+  
+      if (state.player1 && state.player1.position) {
+          player1.setPosition(state.player1.position);
+      }
+      if (state.player2 && state.player2.position) {
+          player2.setPosition(state.player2.position);
+      }
+  
+      // Update platform positions if provided
+      if (state.platforms) {
+          updatePlatforms(state.platforms);
+      }
+  }
+  
+  function updatePlatforms(platformPositions) {
+      // Remove existing platforms
+      scene.children = scene.children.filter(child => child.userData.type !== 'platform');
+  
+      // Create new platforms based on server data
+      platformPositions.forEach(pos => {
+          const platformGeometry = new THREE.BoxGeometry(10, 1, 10);
+          const platformMaterial = new THREE.MeshStandardMaterial({ color: 0x8B0000 });
+          const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+          platform.position.set(pos.x, pos.y, pos.z);
+          platform.userData.type = 'platform';
+          platform.userData.height = 1; // Assign height for collision detection
+          scene.add(platform);
+      });
+  }
+  
+  // Check for collisions with platforms
+  function checkPlatformCollision(player) {
+      const playerBox = new THREE.Box3().setFromObject(player.mesh);
+      let isOnPlatform = false; // Track if the player is on a platform
+  
+      scene.children.forEach(child => {
+          if (child.userData.type === 'platform') {
+              const platformBox = new THREE.Box3().setFromObject(child);
+              if (playerBox.intersectsBox(platformBox)) {
+                  // If the player is falling, land on the platform
+                  if (player.velocity.y < 0) {
+                      player.mesh.position.y = child.position.y + child.userData.height; // Land on top
+                      player.velocity.y = 0; // Reset vertical velocity
+                      isOnPlatform = true; // Mark player as on platform
+                  }
+              }
+          }
+      });
+  
+      // If the player is not on any platform, check ground contact
+      if (!isOnPlatform) {
+          if (player.mesh.position.y <= 2) {
+              player.mesh.position.y = 2; // Reset to ground level
+              player.velocity.y = 0;
+              player.canJump = true; // Player can jump if they are back on the ground
+          } else {
+              player.canJump = false; // Disable jump if in air
+          }
+      } else {
+          player.canJump = true; // Allow jumping if standing on a platform
+      }
+  }
+  
+  // Start the animation loop
+  animate();
