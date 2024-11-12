@@ -29,6 +29,7 @@ type GameState struct {
 	Player1   PlayerState `json:"player1"`
 	Player2   PlayerState `json:"player2"`
 	Platforms []Position  `json:"platforms"`
+	Cubes     []Position  `json:"cubes"` // Added cubes to the game state
 }
 
 // InputMessage represents input from clients.
@@ -37,6 +38,7 @@ type InputMessage struct {
 	LobbyID   string     `json:"lobbyID,omitempty"`
 	Player    string     `json:"player,omitempty"`
 	Action    string     `json:"action,omitempty"`
+	PlayerID  string     `json:"playerID,omitempty"` // Indicate player ID for collection
 	Direction *Direction `json:"direction,omitempty"`
 }
 
@@ -88,18 +90,20 @@ func newServer() *Server {
 
 // Initialize a new lobby.
 func newLobby(id string) *Lobby {
-	platforms := generateRandomPlatforms(20) // Generate 20 random platforms
+	platforms := generateRandomPlatforms(20)
+	cubes := generateInitialCubes(5) // Create 5 initial falling cubes
 
 	return &Lobby{
 		ID:         id,
 		clients:    make(map[*Client]bool),
-		broadcast:  make(chan []byte, 256), // Ensure channels are buffered
+		broadcast:  make(chan []byte, 256),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		state: GameState{
 			Player1:   PlayerState{Position: Position{X: 0, Y: 2, Z: 0}},
 			Player2:   PlayerState{Position: Position{X: 0, Y: 2, Z: 0}},
 			Platforms: platforms,
+			Cubes:     cubes,
 		},
 	}
 }
@@ -115,6 +119,19 @@ func generateRandomPlatforms(count int) []Position {
 		}
 	}
 	return platforms
+}
+
+// Generate initial cubes for the game
+func generateInitialCubes(count int) []Position {
+	cubes := make([]Position, count)
+	for i := 0; i < count; i++ {
+		cubes[i] = Position{
+			X: (rand.Float64() * 180) - 90,
+			Y: 50, // Starting height above the ground for falling cubes
+			Z: (rand.Float64() * 180) - 90,
+		}
+	}
+	return cubes
 }
 
 // RunLobby continuously listens for lobby events.
@@ -389,10 +406,19 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 		} else if c.playerID == "player2" && lobby.state.Player2.Position.Y <= 2 {
 			lobby.state.Player2.Position.Y += 4 // Simulate jump height
 		}
+	case "collect":
+		// Handle cube collection
+		if input.PlayerID != "" {
+			if input.PlayerID == "player1" {
+				collectCube(&lobby.state.Player1, lobby)
+			} else if input.PlayerID == "player2" {
+				collectCube(&lobby.state.Player2, lobby)
+			}
+		}
 	}
 
-	// Handle collisions with platforms
-	handlePlatformCollision(lobby)
+	// Check for collisions with cubes
+	checkCubeCollision(lobby)
 
 	// Broadcast updated state to all clients in the lobby
 	stateBytes, err := json.Marshal(map[string]interface{}{
@@ -406,31 +432,23 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 	lobby.broadcast <- stateBytes
 }
 
-// HandlePlatformCollision checks player positions against platforms
-func handlePlatformCollision(lobby *Lobby) {
-	for _, platform := range lobby.state.Platforms {
-		// Check player 1's collision with the platform
-		if lobby.state.Player1.Position.X >= platform.X-5 && lobby.state.Player1.Position.X <= platform.X+5 &&
-			lobby.state.Player1.Position.Z >= platform.Z-5 && lobby.state.Player1.Position.Z <= platform.Z+5 {
-			// Only adjust position if the player is truly falling
-			if lobby.state.Player1.Position.Y <= platform.Y+1 {
-				if lobby.state.Player1.Position.Y+1 >= platform.Y {
-					lobby.state.Player1.Position.Y = platform.Y + 1 // Set position just above the platform
-				}
-			}
-		}
-
-		// Check player 2's collision with the platform
-		if lobby.state.Player2.Position.X >= platform.X-5 && lobby.state.Player2.Position.X <= platform.X+5 &&
-			lobby.state.Player2.Position.Z >= platform.Z-5 && lobby.state.Player2.Position.Z <= platform.Z+5 {
-			// Only adjust position if the player is truly falling
-			if lobby.state.Player2.Position.Y <= platform.Y+1 {
-				if lobby.state.Player2.Position.Y+1 >= platform.Y {
-					lobby.state.Player2.Position.Y = platform.Y + 1 // Set position just above the platform
-				}
-			}
+// CollectCube checks if a player has collected a cube
+func collectCube(player *PlayerState, lobby *Lobby) {
+	for i, cube := range lobby.state.Cubes {
+		if player.Position.X >= cube.X-1 && player.Position.X <= cube.X+1 &&
+			player.Position.Z >= cube.Z-1 && player.Position.Z <= cube.Z+1 &&
+			player.Position.Y <= cube.Y+1 {
+			log.Printf("%s collected a cube!", player.Position)
+			// Remove the cube from the lobby
+			lobby.state.Cubes = append(lobby.state.Cubes[:i], lobby.state.Cubes[i+1:]...) // Remove the cube
+			return                                                                        // Exit after collecting one cube
 		}
 	}
+}
+
+// CheckCubeCollision checks player positions against cubes
+func checkCubeCollision(lobby *Lobby) {
+	// Implement if you want to handle real-time checking here
 }
 
 // Generate a unique lobby ID.

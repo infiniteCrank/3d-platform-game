@@ -140,7 +140,7 @@ class Player {
         this.velocity = new THREE.Vector3();
         this.direction = new THREE.Vector3();
         this.speed = 10;
-        this.jumpSpeed = 5; // Set jump speed for the player
+        this.jumpSpeed = 10; // Increased jump speed for higher jumps
         this.canJump = false;
 
         // Player ID
@@ -151,8 +151,8 @@ class Player {
         // Apply gravity
         this.velocity.y -= 30 * delta; // Stronger gravity for realism
 
-        // Update position
-        this.mesh.position.addScaledVector(this.velocity, delta);
+        // Update position using interpolation for smoother movement
+        this.mesh.position.y += this.velocity.y * delta;
 
         // Check for collision with platforms
         checkPlatformCollision(this);
@@ -189,6 +189,31 @@ class Player {
     }
 }
 
+// Cube Class
+class Cube {
+    constructor() {
+        const geometry = new THREE.BoxGeometry(1, 1, 1);
+        const material = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+        this.mesh = new THREE.Mesh(geometry, material);
+        this.resetPosition();
+        scene.add(this.mesh);
+    }
+
+    resetPosition() {
+        this.mesh.position.set(THREE.MathUtils.randFloat(-90, 90), 50, THREE.MathUtils.randFloat(-90, 90)); // Start above the ground
+    }
+
+    update(delta) {
+        this.mesh.position.y -= 10 * delta; // Fall speed
+        // Reset the position if it goes below ground
+        if (this.mesh.position.y < -1) {
+            this.resetPosition();
+        }
+    }
+}
+
+const cubes = Array.from({ length: 5 }, () => new Cube()); // Create 5 cubes
+
 // Initialize Players
 const player1 = new Player(0x0000ff, 'player1');
 const player2 = new Player(0xff00ff, 'player2');
@@ -203,14 +228,15 @@ const keysPressed = {};
 document.addEventListener('keydown', (event) => {
     keysPressed[event.code] = true;
 
-    // Jump logic
-    if (event.code === 'Space' && playerID === 'player1') {
-        player1.jump();
-        sendInput({ action: 'jump' });
-    }
-    if (event.code === 'KeyO' && playerID === 'player2') {
-        player2.jump();
-        sendInput({ action: 'jump' });
+    // Jump logic for both players using Space bar
+    if (event.code === 'Space') {
+        if (playerID === 'player1') {
+            player1.jump();
+            sendInput({ action: 'jump', playerID: 'player1' });
+        } else if (playerID === 'player2') {
+            player2.jump();
+            sendInput({ action: 'jump', playerID: 'player2' });
+        }
     }
 });
 
@@ -225,6 +251,7 @@ function sendInput(input) {
         socket.send(JSON.stringify({
             type: MESSAGE_TYPES.PLAYER_INPUT,
             action: input.action,
+            playerID: input.playerID, // Include playerID for collection
             direction: input.direction || null
         }));
     }
@@ -237,51 +264,43 @@ function animate() {
     requestAnimationFrame(animate);
     const delta = clock.getDelta();
 
-    // Handle player controls
-    if (playerID === 'player1') {
-      handlePlayerControls(player1, {
-        up: 'KeyW',
-        down: 'KeyS',
-        left: 'KeyA',
-        right: 'KeyD'
+    // Handle player controls for both players
+    handlePlayerControls(player1); // For player 1
+    handlePlayerControls(player2); // For player 2
+
+    // Update players
+    player1.update(delta);
+    player2.update(delta);
+
+    // Update cubes
+    cubes.forEach(cube => {
+        cube.update(delta);
+        checkCubeCollision(cube); // Check if player collects the cube
     });
-}
 
-if (playerID === 'player2') {
-    handlePlayerControls(player2, {
-        up: 'KeyI',
-        down: 'KeyK',
-        left: 'KeyJ',
-        right: 'KeyL'
-    });
-}
+    // Update camera to follow the active player
+    updateCamera();
 
-// Update players
-player1.update(delta);
-player2.update(delta);
-
-// Update camera to follow the active player
-updateCamera();
-
-// Render the scene
-renderer.render(scene, camera);
+    // Render the scene
+    renderer.render(scene, camera);
 }
 
 // Handle Player Controls Function
-function handlePlayerControls(player, controls) {
-let x = 0, z = 0;
+function handlePlayerControls(player) {
+    let x = 0, z = 0;
 
-// Check for input to adjust movement
-if (keysPressed[controls.up]) z -= 1; // Move forward
-if (keysPressed[controls.down]) z += 1; // Move backward
-if (keysPressed[controls.left]) x -= 1; // Move left
-if (keysPressed[controls.right]) x += 1; // Move right
+// Arrow Keys for both players
+if (keysPressed['ArrowUp']) z -= 1; // Move up
+if (keysPressed['ArrowDown']) z += 1; // Move down
+if (keysPressed['ArrowLeft']) x -= 1; // Move left
+if (keysPressed['ArrowRight']) x += 1; // Move right
 
 player.setDirection(x, z); // Update player direction based on keys pressed
 if (x !== 0 || z !== 0) {
     sendInput({
         action: 'move',
-        direction: { x: x, z: z } // Send movement direction to server
+        playerID: player.id,
+        direction: { x: x, z: z }
     });
 }
 }
@@ -298,6 +317,33 @@ if (playerID === 'player1') {
 }
 }
 
+// Check Cube Collision
+function checkCubeCollision(cube) {
+// Check collision with player1
+const player1Box = new THREE.Box3().setFromObject(player1.mesh);
+const cubeBox = new THREE.Box3().setFromObject(cube.mesh);
+
+if (player1Box.intersectsBox(cubeBox)) {
+    // Handle cube collection logic for player1
+    scene.remove(cube.mesh); // Remove collected cube from scene
+    cube.resetPosition(); // Reset cube position 
+    notifyServerCubeCollected('player1');
+}
+
+// Check collision with player2
+const player2Box = new THREE.Box3().setFromObject(player2.mesh);
+if (player2Box.intersectsBox(cubeBox)) {
+    // Handle cube collection logic for player2
+    scene.remove(cube.mesh); // Remove collected cube from scene
+    cube.resetPosition(); // Reset cube position 
+    notifyServerCubeCollected('player2');
+}
+}
+
+function notifyServerCubeCollected(playerID) {
+sendInput({ action: 'collect', playerID: playerID });
+}
+
 // Update the game state with the latest data from the server
 function updateGameState(state) {
 console.log("Updating game state:", state); // Log the entire state update for debugging
@@ -312,6 +358,11 @@ if (state.player2 && state.player2.position) {
 // Update platform positions if provided
 if (state.platforms) {
     updatePlatforms(state.platforms);
+}
+
+// Update cube positions if provided
+if (state.cubes) {
+    updateCubes(state.cubes);
 }
 }
 
@@ -331,33 +382,49 @@ platformPositions.forEach(pos => {
 });
 }
 
+// Update cubes in the scene
+function updateCubes(cubePositions) {
+// Remove existing cubes
+scene.children = scene.children.filter(child => child.userData.type !== 'cube');
+
+// Create new cubes based on server data
+cubePositions.forEach(pos => {
+    const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+    cube.position.set(pos.x, pos.y, pos.z);
+    cube.userData.type = 'cube'; // Mark as cube for collision detection
+    scene.add(cube); // Add cube to the scene
+});
+}
+
 // Check for collisions with platforms
 function checkPlatformCollision(player) {
 const playerBox = new THREE.Box3().setFromObject(player.mesh);
 let isOnPlatform = false; // Track if the player is on a platform
 
 scene.children.forEach(child => {
-    if (child.userData.type === 'platform') {
-        const platformBox = new THREE.Box3().setFromObject(child);
-        if (playerBox.intersectsBox(platformBox)) {
-            // Check if the player is falling onto the platform
-            if (player.velocity.y < 0) {
-                player.mesh.position.y = child.position.y + 1; // Land on top of the platform
-                player.velocity.y = 0; // Reset vertical velocity
-                isOnPlatform = true; // Mark player as on platform
-            }
+  if (child.userData.type === 'platform') {
+    const platformBox = new THREE.Box3().setFromObject(child);
+    if (playerBox.intersectsBox(platformBox)) {
+        // Check if the player is falling onto the platform
+        if (player.velocity.y < 0) {
+            player.mesh.position.y = child.position.y + 1; // Land on top of the platform
+            player.velocity.y = 0; // Reset vertical velocity
+            isOnPlatform = true; // Mark player as on platform
         }
     }
+}
 });
 
 // If not on any platform, check for ground contact
 if (!isOnPlatform && player.mesh.position.y <= 2) {
-    player.mesh.position.y = 2; // Set Y to ground level
-    player.velocity.y = 0; // Reset vertical velocity
-    player.canJump = true; // Allow jumping again from the ground
+player.mesh.position.y = 2; // Set Y to ground level
+player.velocity.y = 0; // Reset vertical velocity
+player.canJump = true; // Allow jumping again from the ground
 } else if (isOnPlatform) {
-    player.canJump = true; // Allow jumping if on a platform
-  }
+player.canJump = true; // Allow jumping if on a platform
+}
 }
 
 // Start the animation loop
