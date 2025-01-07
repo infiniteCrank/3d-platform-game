@@ -255,6 +255,13 @@ function animate() {
   player1.update(delta);
   player2.update(delta);
 
+    // Update cubes to fall
+    cubes.forEach(cube => {
+        if (cube.position.y > 0) {
+            cube.position.y -= 0.05; // Falling speed
+        }
+    });
+
   // Update camera to follow the active player
   updateCamera();
 
@@ -318,7 +325,27 @@ function updateGameState(state) {
   if (state.platforms) {
     updatePlatforms(state.platforms);
   }
+  if (state.cubes) {
+    updateCubes(state.cubes)
+  }
 }
+
+const cubes = []
+// Update platforms in the scene
+function updateCubes(cubePositions) {
+    // Create new platforms based on server data
+    cubePositions.forEach((pos) => {
+      const cubeGeometry = new THREE.BoxGeometry(1, 1, 1); // Define platform dimensions
+      const cubeMaterial = new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff });
+      const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+      cube.position.set(pos.x, pos.y, pos.z);
+      cube.userData.type = "cube"; // Mark as cube for collision detection
+      scene.add(cube); // Add cube to the scene
+      cubes.push(cube); // add cube to cubes array for later 
+    });
+
+    console.log(cubes)
+  }
 
 // Update platforms in the scene
 function updatePlatforms(platformPositions) {

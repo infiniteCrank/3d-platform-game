@@ -90,7 +90,7 @@ func newServer() *Server {
 
 // Initialize a new lobby.
 func newLobby(id string) *Lobby {
-	platforms := generateRandomPlatforms(20)
+	platforms := generateRandomPlatforms(10)
 	cubes := generateInitialCubes(5) // Create 5 initial falling cubes
 
 	return &Lobby{
@@ -120,16 +120,16 @@ func generateRandomPlatforms(count int) []Position {
 		if i == 0 {
 			// First platform with a max height of 3 and a random Z position
 			newPlatform = Position{
-				X: generateRandomFloat(-2, 2),                // Random X within range [-2, 2]
+				X: generateRandomFloat(-140, 140),            // Random X within range [-2, 2]
 				Y: randomSource.Float64() * maxInitialHeight, // Y can be 0 to maxInitialHeight
-				Z: generateRandomFloat(-200, 200),            // Random Z within range [-90, 90]
+				Z: generateRandomFloat(-140, 140),            // Random Z within range [-90, 90]
 			}
 		} else {
 			// Increase the Y value for each subsequent platform and add random Z coordinate
 			newPlatform = Position{
-				X: generateRandomFloat(-2, 2), // Random X within range [-2, 2]
-				Y: float64(i + 2),             // Height Y increases by 1 for each platform (starting from 2)
-				Z: generateRandomFloat(-200, 200),
+				X: generateRandomFloat(-140, 140), // Random X within range [-2, 2]
+				Y: float64(i + 2),                 // Height Y increases by 1 for each platform (starting from 2)
+				Z: generateRandomFloat(-140, 140),
 			}
 		}
 
