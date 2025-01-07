@@ -90,7 +90,7 @@ func newServer() *Server {
 
 // Initialize a new lobby.
 func newLobby(id string) *Lobby {
-	platforms := generateRandomPlatforms(20)
+	platforms := generateRandomPlatforms(5)
 	cubes := generateInitialCubes(5) // Create 5 initial falling cubes
 
 	return &Lobby{

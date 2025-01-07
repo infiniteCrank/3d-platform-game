@@ -189,68 +189,6 @@ class Player {
     }
 }
 
-// Cube Class
-class Cube {
-constructor() {
-    const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshStandardMaterial({ color: 0xffff00 });
-    this.mesh = new THREE.Mesh(geometry, material);
-    this.resetPosition();
-    scene.add(this.mesh);
-    this.isGrounded = false; // Track if the cube is on the ground or a platform
-}
-
-resetPosition() {
-    this.mesh.position.set(THREE.MathUtils.randFloat(-90, 90), 50, THREE.MathUtils.randFloat(-90, 90)); // Start above the ground
-    this.isGrounded = false; // Reset grounded state
-}
-
-update(delta) {
-    this.mesh.position.y -= 10 * delta; // Fall speed
-
-    // Check for collisions with the ground and platforms
-    this.checkCollision();
-
-    // If the cube is still in the air, reset position if it goes below ground (for demo purposes)
-    if (!this.isGrounded && this.mesh.position.y < -1) {
-        this.resetPosition();
-    }
-}
-
-checkCollision() {
-    const cubeBox = new THREE.Box3().setFromObject(this.mesh);
-
-    // Check collision with ground
-    const groundBox = new THREE.Box3().setFromObject(ground);
-    if (!this.isGrounded && cubeBox.intersectsBox(groundBox)) {
-        // Set the cube's Y position just above the ground
-        this.mesh.position.y = 1; // Set to just above the ground
-        this.isGrounded = true;
-        return;
-    }
-
-    // Check collision with platforms
-    let onPlatform = false; // Track if the cube is on any platform
-    scene.children.forEach(child => {
-        if (child.userData.type === 'platform') {
-            const platformBox = new THREE.Box3().setFromObject(child);
-            if (!this.isGrounded && cubeBox.intersectsBox(platformBox)) {
-                // Set cube on top of the platform
-                this.mesh.position.y = child.position.y + 1; // Set the cube's y position slightly above the platform
-                onPlatform = true; // Mark as on a platform
-            }
-        }
-    });
-
-    // Reset grounded state if not on ground or platform
-    if (!onPlatform) {
-        this.isGrounded = false;
-    }
-}
-}
-
-const cubes = Array.from({ length: 5 }, () => new Cube()); // Create 5 cubes
-
 // Initialize Players
 const player1 = new Player(0x0000ff, 'player1');
 const player2 = new Player(0xff00ff, 'player2');
@@ -309,12 +247,6 @@ function animate() {
     player1.update(delta);
     player2.update(delta);
 
-    // Update cubes
-    cubes.forEach(cube => {
-        cube.update(delta);
-        checkCubeCollision(cube); // Check if player collects the cube
-    });
-
     // Update camera to follow the active player
     updateCamera();
 
@@ -354,33 +286,6 @@ if (playerID === 'player1') {
 }
 }
 
-// Check Cube Collision
-function checkCubeCollision(cube) {
-// Check collision with player1
-const player1Box = new THREE.Box3().setFromObject(player1.mesh);
-const cubeBox = new THREE.Box3().setFromObject(cube.mesh);
-
-if (player1Box.intersectsBox(cubeBox)) {
-    // Handle cube collection logic for player1
-    scene.remove(cube.mesh); // Remove collected cube from scene
-    cube.resetPosition(); // Reset cube position 
-    notifyServerCubeCollected('player1');
-}
-
-// Check collision with player2
-const player2Box = new THREE.Box3().setFromObject(player2.mesh);
-if (player2Box.intersectsBox(cubeBox)) {
-    // Handle cube collection logic for player2
-    scene.remove(cube.mesh); // Remove collected cube from scene
-    cube.resetPosition(); // Reset cube position 
-    notifyServerCubeCollected('player2');
-}
-}
-
-function notifyServerCubeCollected(playerID) {
-sendInput({ action: 'collect', playerID: playerID });
-}
-
 // Update the game state with the latest data from the server
 function updateGameState(state) {
 console.log("Updating game state:", state); // Log the entire state update for debugging
@@ -395,11 +300,6 @@ if (state.player2 && state.player2.position) {
 // Update platform positions if provided
 if (state.platforms) {
     updatePlatforms(state.platforms);
-}
-
-// Update cube positions if provided
-if (state.cubes) {
-    updateCubes(state.cubes);
 }
 }
 
@@ -416,22 +316,6 @@ platformPositions.forEach(pos => {
     platform.position.set(pos.x, pos.y, pos.z);
     platform.userData.type = 'platform'; // Mark as platform for collision detection
     scene.add(platform); // Add platform to the scene
-});
-}
-
-// Update cubes in the scene
-function updateCubes(cubePositions) {
-// Remove existing cubes
-scene.children = scene.children.filter(child => child.userData.type !== 'cube');
-
-// Create new cubes based on server data
-cubePositions.forEach(pos => {
-    const cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const cubeMaterial = new THREE.MeshStandardMaterial({ color: 0xffff00 });
-    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-    cube.position.set(pos.x, pos.y, pos.z);
-    cube.userData.type = 'cube'; // Mark as cube for collision detection
-    scene.add(cube); // Add cube to the scene
 });
 }
 
