@@ -90,7 +90,7 @@ func newServer() *Server {
 
 // Initialize a new lobby.
 func newLobby(id string) *Lobby {
-	platforms := generateRandomPlatforms(5)
+	platforms := generateRandomPlatforms(20)
 	cubes := generateInitialCubes(5) // Create 5 initial falling cubes
 
 	return &Lobby{
@@ -110,15 +110,46 @@ func newLobby(id string) *Lobby {
 
 // Generate random platforms for the game
 func generateRandomPlatforms(count int) []Position {
-	platforms := make([]Position, count)
+	randomSource := rand.New(rand.NewSource(time.Now().UnixNano())) // Create a new random source
+	platforms := make([]Position, 0)
+
+	maxInitialHeight := 3.0
+
 	for i := 0; i < count; i++ {
-		platforms[i] = Position{
-			X: (rand.Float64() * 180) - 90,
-			Y: (rand.Float64() * 40) + 5, // Height above ground
-			Z: (rand.Float64() * 180) - 90,
+		var newPlatform Position
+		if i == 0 {
+			// First platform with a max height of 3 and a random Z position
+			newPlatform = Position{
+				X: generateRandomFloat(-2, 2),                // Random X within range [-2, 2]
+				Y: randomSource.Float64() * maxInitialHeight, // Y can be 0 to maxInitialHeight
+				Z: generateRandomFloat(-200, 200),            // Random Z within range [-90, 90]
+			}
+		} else {
+			// Increase the Y value for each subsequent platform and add random Z coordinate
+			newPlatform = Position{
+				X: generateRandomFloat(-2, 2), // Random X within range [-2, 2]
+				Y: float64(i + 2),             // Height Y increases by 1 for each platform (starting from 2)
+				Z: generateRandomFloat(-200, 200),
+			}
 		}
+
+		// Adjust X coordinate to be within horizontal distance of 2 from the platform below
+		if len(platforms) > 0 {
+			maxX := platforms[len(platforms)-1].X + 4
+			minX := platforms[len(platforms)-1].X - 4
+			newPlatform.X = minX + (randomSource.Float64() * (maxX - minX)) // Randomize within the limits
+		}
+
+		platforms = append(platforms, newPlatform)
 	}
+
 	return platforms
+}
+
+// Generate a random float64 between min and max (inclusive)
+func generateRandomFloat(min, max float64) float64 {
+	randomSource := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return randomSource.Float64()*(max-min) + min
 }
 
 // Generate initial cubes for the game
@@ -372,7 +403,7 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 	defer lobby.mutex.Unlock()
 
 	// Apply gravity and handle jumping
-	gravity := 0.2
+	gravity := 0.1
 	if c.playerID == "player1" {
 		lobby.state.Player1.Position.Y -= gravity
 	} else if c.playerID == "player2" {
