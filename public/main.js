@@ -146,7 +146,7 @@ class Player {
     this.velocity = new THREE.Vector3();
     this.direction = new THREE.Vector3();
     this.speed = 10;
-    this.jumpSpeed = 20; // Increased jump speed for higher jumps
+    this.jumpSpeed = 50; // Increased jump speed for higher jumps
     this.canJump = false;
 
     // Player ID
@@ -255,12 +255,12 @@ function animate() {
   player1.update(delta);
   player2.update(delta);
 
-    // Update cubes to fall
-    cubes.forEach(cube => {
-        if (cube.position.y > 0) {
-            cube.position.y -= 0.05; // Falling speed
-        }
-    });
+  // Update cubes to fall
+  cubes.forEach((cube) => {
+    if (cube.position.y > 0) {
+      cube.position.y -= 0.05; // Falling speed
+    }
+  });
 
   // Update camera to follow the active player
   updateCamera();
@@ -310,6 +310,7 @@ function updateCamera() {
   }
 }
 
+var cubeInit = false
 // Update the game state with the latest data from the server
 function updateGameState(state) {
   console.log("Updating game state:", state); // Log the entire state update for debugging
@@ -325,27 +326,30 @@ function updateGameState(state) {
   if (state.platforms) {
     updatePlatforms(state.platforms);
   }
-  if (state.cubes) {
-    updateCubes(state.cubes)
+  if (state.cubes && !cubeInit) {
+    updateCubes(state.cubes);
+    cubeInit = true
   }
 }
 
-const cubes = []
+const cubes = [];
 // Update platforms in the scene
 function updateCubes(cubePositions) {
-    // Create new platforms based on server data
-    cubePositions.forEach((pos) => {
-      const cubeGeometry = new THREE.BoxGeometry(1, 1, 1); // Define platform dimensions
-      const cubeMaterial = new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff });
-      const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-      cube.position.set(pos.x, pos.y, pos.z);
-      cube.userData.type = "cube"; // Mark as cube for collision detection
-      scene.add(cube); // Add cube to the scene
-      cubes.push(cube); // add cube to cubes array for later 
+  // Create new platforms based on server data
+  cubePositions.forEach((pos) => {
+    const cubeGeometry = new THREE.BoxGeometry(1, 1, 1); // Define platform dimensions
+    const cubeMaterial = new THREE.MeshStandardMaterial({
+      color: Math.random() * 0xffffff,
     });
+    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
+    cube.position.set(pos.x, pos.y, pos.z);
+    cube.userData.type = "cube"; // Mark as cube for collision detection
+    scene.add(cube); // Add cube to the scene
+    cubes.push(cube); // add cube to cubes array for later
+  });
 
-    console.log(cubes)
-  }
+  console.log(cubes);
+}
 
 // Update platforms in the scene
 function updatePlatforms(platformPositions) {
@@ -382,7 +386,7 @@ function checkPlatformCollision(player) {
           player.mesh.position.y =
             child.position.y +
             child.geometry.parameters.height / 2 +
-            player.mesh.geometry.parameters.height/2;
+            player.mesh.geometry.parameters.height / 2;
           player.velocity.y = 0; // Reset vertical velocity
           isOnPlatform = true; // Mark player as on platform
         }
