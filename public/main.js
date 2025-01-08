@@ -168,6 +168,9 @@ class Player {
       this.mesh.position.y = 2; // Reset to ground level
       this.velocity.y = 0; // Reset vertical velocity
       this.canJump = true; // Player can jump when on the ground
+
+      // Check for cube collection when hitting the ground
+      collectCubes(this); // Check for cube collisions
     }
   }
 
@@ -258,7 +261,7 @@ function animate() {
   // Update cubes to fall
   cubes.forEach((cube) => {
     if (cube.position.y > 0) {
-      cube.position.y -= 0.05; // Falling speed
+      cube.position.y -= 0.2; // Falling speed
     }
   });
 
@@ -267,6 +270,27 @@ function animate() {
 
   // Render the scene
   renderer.render(scene, camera);
+}
+
+// New function to handle cube collection
+function collectCubes(player) {
+  const playerBox = new THREE.Box3().setFromObject(player.mesh);
+
+  cubes.forEach((cube, index) => {
+    const cubeBox = new THREE.Box3().setFromObject(cube);
+    if (playerBox.intersectsBox(cubeBox)) {
+      // The cube has been collected
+      scene.remove(cube); // Remove cube from the scene
+      cubes.splice(index, 1); // Remove from cubes array
+      notifyServerCubeCollected(player.id); // Notify server about the collected cube
+      console.log(`Player ${player.id} collected a cube`);
+    }
+  });
+}
+
+// notifyServerCubeCollected("player2");
+function notifyServerCubeCollected(playerID) {
+  sendInput({ action: "collect", playerID: playerID });
 }
 
 // Handle Player Controls Function
@@ -310,7 +334,7 @@ function updateCamera() {
   }
 }
 
-var cubeInit = false
+var cubeInit = false;
 // Update the game state with the latest data from the server
 function updateGameState(state) {
   console.log("Updating game state:", state); // Log the entire state update for debugging
@@ -328,7 +352,7 @@ function updateGameState(state) {
   }
   if (state.cubes && !cubeInit) {
     updateCubes(state.cubes);
-    cubeInit = true
+    cubeInit = true;
   }
 }
 
@@ -337,7 +361,7 @@ const cubes = [];
 function updateCubes(cubePositions) {
   // Create new platforms based on server data
   cubePositions.forEach((pos) => {
-    const cubeGeometry = new THREE.BoxGeometry(1, 1, 1); // Define platform dimensions
+    const cubeGeometry = new THREE.BoxGeometry(5, 5, 5); // Define platform dimensions
     const cubeMaterial = new THREE.MeshStandardMaterial({
       color: Math.random() * 0xffffff,
     });
