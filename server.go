@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"math/rand"
 	"net/http"
@@ -466,10 +467,10 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 // CollectCube checks if a player has collected a cube
 func collectCube(player *PlayerState, lobby *Lobby) {
 	for i, cube := range lobby.state.Cubes {
-		if player.Position.X >= cube.X-1 && player.Position.X <= cube.X+1 &&
-			player.Position.Z >= cube.Z-1 && player.Position.Z <= cube.Z+1 &&
-			player.Position.Y <= cube.Y+1 {
-			log.Printf("%s collected a cube!", player.Position)
+		if player.Position.X >= cube.X-5 && player.Position.X <= cube.X+5 &&
+			player.Position.Z >= cube.Z-5 && player.Position.Z <= cube.Z+5 &&
+			player.Position.Y <= cube.Y+5 {
+			fmt.Printf("%v collected a cube!", player.Position)
 			// Remove the cube from the lobby
 			lobby.state.Cubes = append(lobby.state.Cubes[:i], lobby.state.Cubes[i+1:]...) // Remove the cube
 			return                                                                        // Exit after collecting one cube
