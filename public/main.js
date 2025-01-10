@@ -354,6 +354,8 @@ function updateGameState(state) {
     updateCubes(state.cubes);
     cubeInit = true;
   }
+  var totalCubesElement = document.getElementById("totalCubes");
+  totalCubesElement.innerHTML = "Total Cubes: " + state.cubes.length
 }
 
 const cubes = [];
