@@ -350,7 +350,7 @@ function updateGameState(state) {
   if (state.platforms) {
     updatePlatforms(state.platforms);
   }
-  if (state.cubes && !cubeInit) {
+  if (state.cubes.length > 0 && !cubeInit) {
     updateCubes(state.cubes);
     cubeInit = true;
   }

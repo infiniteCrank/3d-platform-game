@@ -92,7 +92,7 @@ func newServer() *Server {
 // Initialize a new lobby.
 func newLobby(id string) *Lobby {
 	platforms := generateRandomPlatforms(10)
-	cubes := generateInitialCubes(5) // Create 5 initial falling cubes
+	//cubes := generateInitialCubes(5) // Create 5 initial falling cubes
 
 	return &Lobby{
 		ID:         id,
@@ -104,7 +104,7 @@ func newLobby(id string) *Lobby {
 			Player1:   PlayerState{Position: Position{X: 0, Y: 2, Z: 0}},
 			Player2:   PlayerState{Position: Position{X: 0, Y: 2, Z: 0}},
 			Platforms: platforms,
-			Cubes:     cubes,
+			Cubes:     []Position{}, // Initialize with an empty slice,
 		},
 	}
 }
@@ -176,7 +176,9 @@ func (s *Server) runLobby(lobby *Lobby) {
 			lobby.sendState(client)
 			// If the lobby is full, start the game
 			if len(lobby.clients) == 2 {
-				log.Println("Lobby is full. Starting game...")
+				log.Println("Lobby is full. Starting game and generating cubes...")
+				lobby.state.Cubes = generateInitialCubes(5) // Generate cubes only when both players are present
+
 				lobby.broadcastGameStart()
 			}
 			log.Printf("Number of clients in lobby %s: %d", lobby.ID, len(lobby.clients))
