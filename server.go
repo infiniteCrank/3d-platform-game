@@ -27,10 +27,12 @@ type PlayerState struct {
 
 // GameState holds the state of the game within a lobby.
 type GameState struct {
-	Player1   PlayerState `json:"player1"`
-	Player2   PlayerState `json:"player2"`
-	Platforms []Position  `json:"platforms"`
-	Cubes     []Position  `json:"cubes"` // Added cubes to the game state
+	Player1      PlayerState `json:"player1"`
+	Player2      PlayerState `json:"player2"`
+	Platforms    []Position  `json:"platforms"`
+	Cubes        []Position  `json:"cubes"` // Added cubes to the game state
+	Player1Cubes int64       `json:"player1Cubes"`
+	Player2Cubes int64       `json:"player2Cubes"`
 }
 
 // InputMessage represents input from clients.
@@ -444,9 +446,9 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 		// Handle cube collection
 		if input.PlayerID != "" {
 			if input.PlayerID == "player1" {
-				collectCube(&lobby.state.Player1, lobby)
+				collectCube(&lobby.state.Player1, "player1", lobby)
 			} else if input.PlayerID == "player2" {
-				collectCube(&lobby.state.Player2, lobby)
+				collectCube(&lobby.state.Player2, "player2", lobby)
 			}
 		}
 	}
@@ -467,12 +469,18 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 }
 
 // CollectCube checks if a player has collected a cube
-func collectCube(player *PlayerState, lobby *Lobby) {
+func collectCube(player *PlayerState, playerId string, lobby *Lobby) {
 	for i, cube := range lobby.state.Cubes {
 		if player.Position.X >= cube.X-5 && player.Position.X <= cube.X+5 &&
 			player.Position.Z >= cube.Z-5 && player.Position.Z <= cube.Z+5 &&
 			player.Position.Y <= cube.Y+5 {
-			fmt.Printf("%v collected a cube!", player.Position)
+			fmt.Printf("%v collected a cube at position %v!", playerId, player.Position)
+			if playerId == "player1" {
+				lobby.state.Player1Cubes++
+			}
+			if playerId == "player2" {
+				lobby.state.Player2Cubes++
+			}
 			// Remove the cube from the lobby
 			lobby.state.Cubes = append(lobby.state.Cubes[:i], lobby.state.Cubes[i+1:]...) // Remove the cube
 			return                                                                        // Exit after collecting one cube

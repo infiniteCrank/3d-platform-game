@@ -373,8 +373,6 @@ function updateCubes(cubePositions) {
     scene.add(cube); // Add cube to the scene
     cubes.push(cube); // add cube to cubes array for later
   });
-
-  console.log(cubes);
 }
 
 // Update platforms in the scene
