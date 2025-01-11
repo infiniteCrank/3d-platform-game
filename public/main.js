@@ -230,7 +230,7 @@ document.addEventListener("keyup", (event) => {
 
 // Send Player Input to Server
 function sendInput(input) {
-  console.log("Sending input: ", input);
+  //console.log("Sending input: ", input);
   if (socket && socket.readyState === WebSocket.OPEN && playerID) {
     socket.send(
       JSON.stringify({
@@ -338,7 +338,7 @@ var cubeInit = false;
 // Update the game state with the latest data from the server
 function updateGameState(state) {
   console.log("Updating game state:", state); // Log the entire state update for debugging
-
+  console.log("cubes:", state.cubes.length);
   if (state.player1 && state.player1.position) {
     player1.setPosition(state.player1.position); // Update player 1 position
   }
@@ -350,17 +350,45 @@ function updateGameState(state) {
   if (state.platforms) {
     updatePlatforms(state.platforms);
   }
+
   if (state.cubes.length > 0 && !cubeInit) {
+    // Reset the cubes only if there are cubes available and the initialization hasn't happened yet
     updateCubes(state.cubes);
     cubeInit = true;
   }
+  if (countCubesInScene() === 0) {
+    cubeInit = false;
+  }
+
   var totalCubesElement = document.getElementById("totalCubes");
-  totalCubesElement.innerHTML = "Total Cubes: " + state.cubes.length
+  totalCubesElement.innerHTML = "Total Cubes: " + state.cubes.length;
+
+  var player1CubesElement = document.getElementById("player1Cubes");
+  player1CubesElement.innerHTML = "Player1 Cubes: " + state.player1Cubes;
+  var player2CubesElement = document.getElementById("player2Cubes");
+  player2CubesElement.innerHTML = "Player2 Cubes: " + state.player2Cubes;
+}
+
+// Function to count the number of cubes in the scene
+function countCubesInScene() {
+  let cubeCount = 0;
+
+  // Loop through all children in the scene
+  scene.children.forEach((child) => {
+    // Check if the child has userData type of 'cube'
+    if (child.userData.type === "cube") {
+      cubeCount++;
+    }
+  });
+  return cubeCount;
 }
 
 const cubes = [];
 // Update platforms in the scene
 function updateCubes(cubePositions) {
+  if (cubePositions.length < 5) {
+    return;
+  }
   // Create new platforms based on server data
   cubePositions.forEach((pos) => {
     const cubeGeometry = new THREE.BoxGeometry(5, 5, 5); // Define platform dimensions

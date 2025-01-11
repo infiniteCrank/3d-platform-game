@@ -483,8 +483,16 @@ func collectCube(player *PlayerState, playerId string, lobby *Lobby) {
 			}
 			// Remove the cube from the lobby
 			lobby.state.Cubes = append(lobby.state.Cubes[:i], lobby.state.Cubes[i+1:]...) // Remove the cube
-			return                                                                        // Exit after collecting one cube
+			break                                                                         // Exit after collecting one cube
 		}
+	}
+
+	// Check if all cubes are collected
+	if len(lobby.state.Cubes) == 0 {
+		// Generate and add 5 new cubes
+		newCubes := generateInitialCubes(5)
+		lobby.state.Cubes = append(lobby.state.Cubes, newCubes...)
+		fmt.Println("All cubes collected! Generating new cubes...")
 	}
 }
 
