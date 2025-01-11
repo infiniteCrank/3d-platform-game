@@ -119,6 +119,10 @@ window.addEventListener("resize", () => {
   camera.updateProjectionMatrix();
 });
 
+// Cannon.js World Setup
+const world = new CANNON.World();
+world.gravity.set(0, -9.82, 0); // Gravity
+
 // Lighting
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
 scene.add(ambientLight);
@@ -133,74 +137,84 @@ const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 ground.position.y = -0.5;
 scene.add(ground);
 
-// Player Class
+const groundBody = new CANNON.Body({
+  mass: 0, // Static body
+  position: new CANNON.Vec3(0, -0.5, 0) 
+});
+const groundShape = new CANNON.Box(new CANNON.Vec3(100, 0.5, 100)); 
+groundBody.addShape(groundShape);
+world.addBody(groundBody);
+
+// Player Class with Cannon Physics
 class Player {
   constructor(color, id) {
     const geometry = new THREE.BoxGeometry(2, 4, 2);
     const material = new THREE.MeshStandardMaterial({ color });
     this.mesh = new THREE.Mesh(geometry, material);
-    this.mesh.position.y = 2;
+    this.mesh.position.set(0, 2, 0);
     scene.add(this.mesh);
 
-    // Movement properties
-    this.velocity = new THREE.Vector3();
-    this.direction = new THREE.Vector3();
-    this.speed = 10;
-    this.jumpSpeed = 50; // Increased jump speed for higher jumps
-    this.canJump = false;
+    // Physics Body
+    this.body = new CANNON.Body({
+      mass: 1,
+      position: new CANNON.Vec3(0, 2, 0)
+    });
+    const playerShape = new CANNON.Box(new CANNON.Vec3(1, 2, 1));
+    this.body.addShape(playerShape);
+    world.addBody(this.body);
 
-    // Player ID
+    // Movement Properties
+    this.speed = 10;
+    this.jumpSpeed = 5; // Adjusted for better physics
+    this.canJump = true; // Allow jumps initially
+
     this.id = id;
   }
 
   update(delta) {
-    // Apply gravity
-    this.velocity.y -= 30 * delta; // Stronger gravity for realism
+    // Update Three.js mesh based on Cannon.js body position and quaternion
+    this.mesh.position.copy(this.body.position);
+    this.mesh.quaternion.copy(this.body.quaternion);
 
-    // Update position using interpolation for smoother movement
-    this.mesh.position.y += this.velocity.y * delta;
-
-    // Check for collision with platforms
-    checkPlatformCollision(this);
-
-    // Collision with ground
+    // Reset jump ability if touching ground
     if (this.mesh.position.y <= 2) {
-      this.mesh.position.y = 2; // Reset to ground level
-      this.velocity.y = 0; // Reset vertical velocity
-      this.canJump = true; // Player can jump when on the ground
-
-      // Check for cube collection when hitting the ground
-      collectCubes(this); // Check for cube collisions
+      this.canJump = true; // Reset jump ability
     }
   }
 
   setDirection(x, z) {
-    this.direction.set(x, 0, z).normalize();
-    if (this.direction.length() > 0) {
-      this.velocity.x = this.direction.x * this.speed;
-      this.velocity.z = this.direction.z * this.speed;
-    } else {
-      this.velocity.x = 0;
-      this.velocity.z = 0;
-    }
+    const force = new CANNON.Vec3(x, 0, z).scale(this.speed);
+    this.body.applyForce(force, this.body.position);
   }
 
   jump() {
     if (this.canJump) {
-      this.velocity.y = this.jumpSpeed; // Jumps up
-      this.canJump = false; // Prevent further jumps until next landing
+      this.body.velocity.y = this.jumpSpeed; // Set jump velocity
+      this.canJump = false; // Prevent double jumping
     }
   }
 
   setPosition(pos) {
-    // Update position exactly as per server instructions
-    this.mesh.position.set(pos.x, pos.y, pos.z);
+    this.body.position.set(pos.x, pos.y, pos.z); // Sync position with server
   }
 }
 
 // Initialize Players
 const player1 = new Player(0x0000ff, "player1");
 const player2 = new Player(0xff00ff, "player2");
+
+// Platforms Creation
+const platforms = [];
+function createPlatform(position) {
+  const platformBody = new CANNON.Body({
+    mass: 0,
+    position: new CANNON.Vec3(position.x, position.y, position.z)
+  });
+  const platformShape = new CANNON.Box(new CANNON.Vec3(5, 0.5, 5)); // Define size
+  platformBody.addShape(platformShape);
+  world.addBody(platformBody);
+  return platformBody;
+}
 
 // Hide game info initially
 document.getElementById("info").classList.add("hidden");
@@ -249,6 +263,9 @@ const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
   const delta = clock.getDelta();
+  
+  // Step the Cannon.js world
+  world.step(1 / 60, delta, 3);
 
   // Handle player controls for both players
   handlePlayerControls(player1); // For player 1
@@ -384,14 +401,14 @@ function countCubesInScene() {
 }
 
 const cubes = [];
-// Update platforms in the scene
+// Update cubes in the scene
 function updateCubes(cubePositions) {
   if (cubePositions.length < 5) {
     return;
   }
-  // Create new platforms based on server data
+  // Create new cubes based on server data
   cubePositions.forEach((pos) => {
-    const cubeGeometry = new THREE.BoxGeometry(5, 5, 5); // Define platform dimensions
+    const cubeGeometry = new THREE.BoxGeometry(5, 5, 5); // Define cube dimensions
     const cubeMaterial = new THREE.MeshStandardMaterial({
       color: Math.random() * 0xffffff,
     });
@@ -404,22 +421,21 @@ function updateCubes(cubePositions) {
 }
 
 // Update platforms in the scene
+// Update Platforms in the scene
 function updatePlatforms(platformPositions) {
-  // Remove existing platforms
-  scene.children = scene.children.filter(
-    (child) => child.userData.type !== "platform"
-  );
+  // Clear existing platforms
+  platforms.forEach((platform) => world.remove(platform));
+  platforms.length = 0; // Clear the array
 
-  // Create new platforms based on server data
+  // Create new platforms
   platformPositions.forEach((pos) => {
-    const platformGeometry = new THREE.BoxGeometry(10, 1, 10); // Define platform dimensions
-    const platformMaterial = new THREE.MeshStandardMaterial({
-      color: 0x8b0000,
-    });
-    const platform = new THREE.Mesh(platformGeometry, platformMaterial);
-    platform.position.set(pos.x, pos.y, pos.z);
-    platform.userData.type = "platform"; // Mark as platform for collision detection
-    scene.add(platform); // Add platform to the scene
+    const platform = createPlatform(pos); // Create physical platform
+    const meshGeometry = new THREE.BoxGeometry(10, 1, 10);
+    const meshMaterial = new THREE.MeshStandardMaterial({ color: 0x8b0000 });
+    const mesh = new THREE.Mesh(meshGeometry, meshMaterial);
+    mesh.position.set(pos.x, pos.y, pos.z);
+    scene.add(mesh);
+    platforms.push(platform); // Store the body
   });
 }
 
