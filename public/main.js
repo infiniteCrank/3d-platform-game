@@ -139,9 +139,9 @@ scene.add(ground);
 
 const groundBody = new CANNON.Body({
   mass: 0, // Static body
-  position: new CANNON.Vec3(0, -0.5, 0) 
+  position: new CANNON.Vec3(0, -0.5, 0),
 });
-const groundShape = new CANNON.Box(new CANNON.Vec3(100, 0.5, 100)); 
+const groundShape = new CANNON.Box(new CANNON.Vec3(100, 0.5, 100));
 groundBody.addShape(groundShape);
 world.addBody(groundBody);
 
@@ -157,7 +157,7 @@ class Player {
     // Physics Body
     this.body = new CANNON.Body({
       mass: 1,
-      position: new CANNON.Vec3(0, 2, 0)
+      position: new CANNON.Vec3(0, 2, 0),
     });
     const playerShape = new CANNON.Box(new CANNON.Vec3(1, 2, 1));
     this.body.addShape(playerShape);
@@ -208,7 +208,7 @@ const platforms = [];
 function createPlatform(position) {
   const platformBody = new CANNON.Body({
     mass: 0,
-    position: new CANNON.Vec3(position.x, position.y, position.z)
+    position: new CANNON.Vec3(position.x, position.y, position.z),
   });
   const platformShape = new CANNON.Box(new CANNON.Vec3(5, 0.5, 5)); // Define size
   platformBody.addShape(platformShape);
@@ -263,7 +263,7 @@ const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
   const delta = clock.getDelta();
-  
+
   // Step the Cannon.js world
   world.step(1 / 60, delta, 3);
 
@@ -275,12 +275,12 @@ function animate() {
   player1.update(delta);
   player2.update(delta);
 
-  // Update cubes to fall
-  cubes.forEach((cube) => {
-    if (cube.position.y > 0) {
-      cube.position.y -= 0.2; // Falling speed
-    }
-  });
+  // Check for cube collection
+  collectCubes(player1); // Check for player1 collecting cubes
+  collectCubes(player2); // Check for player2 collecting cubes
+
+  // Update each cube
+  cubes.forEach((cube) => cube.update());
 
   // Update camera to follow the active player
   updateCamera();
@@ -289,20 +289,70 @@ function animate() {
   renderer.render(scene, camera);
 }
 
-// New function to handle cube collection
+class Cube {
+  constructor(position) {
+    // Create the physical body for the cube
+    this.body = new CANNON.Body({
+      mass: 1, // Set mass to allow it to fall
+      position: new CANNON.Vec3(position.x, position.y, position.z),
+    });
+    const cubeShape = new CANNON.Box(new CANNON.Vec3(2.5, 2.5, 2.5)); // Half dimensions (size)
+    this.body.addShape(cubeShape);
+    world.addBody(this.body);
+
+    // Create the visual representation of the cube
+    const geometry = new THREE.BoxGeometry(5, 5, 5);
+    const material = new THREE.MeshStandardMaterial({
+      color: Math.random() * 0xffffff,
+    });
+    this.mesh = new THREE.Mesh(geometry, material);
+    this.mesh.position.copy(this.body.position);
+    scene.add(this.mesh);
+
+    // Optional userData for identifying cubes
+    this.mesh.userData.type = "cube";
+  }
+
+  update() {
+    // Sync the position of the Three.js mesh with the Cannon.js body
+    this.mesh.position.copy(this.body.position);
+    this.mesh.quaternion.copy(this.body.quaternion);
+  }
+}
+
+const cubes = [];
+// Function to create cubes from server positions
+function updateCubes(cubePositions) {
+  // Clear existing cubes
+  while (cubes.length > 0) {
+    const cubeToRemove = cubes.pop();
+    scene.remove(cubeToRemove.mesh);
+    world.remove(cubeToRemove.body);
+  }
+
+  // Create new cubes based on server data
+  for (const pos of cubePositions) {
+    const cube = new Cube(pos);
+    cubes.push(cube);
+  }
+}
+
+// Collection of Cubes
 function collectCubes(player) {
   const playerBox = new THREE.Box3().setFromObject(player.mesh);
 
-  cubes.forEach((cube, index) => {
-    const cubeBox = new THREE.Box3().setFromObject(cube);
+  for (let i = cubes.length - 1; i >= 0; i--) {
+    const cube = cubes[i];
+    const cubeBox = new THREE.Box3().setFromObject(cube.mesh);
+
     if (playerBox.intersectsBox(cubeBox)) {
-      // The cube has been collected
-      scene.remove(cube); // Remove cube from the scene
-      cubes.splice(index, 1); // Remove from cubes array
+      scene.remove(cube.mesh); // Remove the cube from the scene
+      world.remove(cube.body); // Remove the body from Cannon world
+      cubes.splice(i, 1); // Remove from cubes array
       notifyServerCubeCollected(player.id); // Notify server about the collected cube
       console.log(`Player ${player.id} collected a cube`);
     }
-  });
+  }
 }
 
 // notifyServerCubeCollected("player2");
@@ -400,26 +450,6 @@ function countCubesInScene() {
   return cubeCount;
 }
 
-const cubes = [];
-// Update cubes in the scene
-function updateCubes(cubePositions) {
-  if (cubePositions.length < 5) {
-    return;
-  }
-  // Create new cubes based on server data
-  cubePositions.forEach((pos) => {
-    const cubeGeometry = new THREE.BoxGeometry(5, 5, 5); // Define cube dimensions
-    const cubeMaterial = new THREE.MeshStandardMaterial({
-      color: Math.random() * 0xffffff,
-    });
-    const cube = new THREE.Mesh(cubeGeometry, cubeMaterial);
-    cube.position.set(pos.x, pos.y, pos.z);
-    cube.userData.type = "cube"; // Mark as cube for collision detection
-    scene.add(cube); // Add cube to the scene
-    cubes.push(cube); // add cube to cubes array for later
-  });
-}
-
 // Update platforms in the scene
 // Update Platforms in the scene
 function updatePlatforms(platformPositions) {
@@ -437,39 +467,6 @@ function updatePlatforms(platformPositions) {
     scene.add(mesh);
     platforms.push(platform); // Store the body
   });
-}
-
-// Check for collisions with platforms
-function checkPlatformCollision(player) {
-  const playerBox = new THREE.Box3().setFromObject(player.mesh);
-  let isOnPlatform = false; // Track if the player is on a platform
-
-  scene.children.forEach((child) => {
-    if (child.userData.type === "platform") {
-      const platformBox = new THREE.Box3().setFromObject(child);
-      if (playerBox.intersectsBox(platformBox)) {
-        // Check if the player is falling onto the platform
-        if (player.velocity.y < 0) {
-          // Set the player's Y position to the top of the platform (height + 0.5)
-          player.mesh.position.y =
-            child.position.y +
-            child.geometry.parameters.height / 2 +
-            player.mesh.geometry.parameters.height / 2;
-          player.velocity.y = 0; // Reset vertical velocity
-          isOnPlatform = true; // Mark player as on platform
-        }
-      }
-    }
-  });
-
-  // If not on any platform, check for ground contact
-  if (!isOnPlatform && player.mesh.position.y <= 2) {
-    player.mesh.position.y = 2; // Set Y to ground level
-    player.velocity.y = 0; // Reset vertical velocity
-    player.canJump = true; // Allow jumping again from the ground
-  } else if (isOnPlatform) {
-    player.canJump = true; // Allow jumping if on a platform
-  }
 }
 
 // Start the animation loop
