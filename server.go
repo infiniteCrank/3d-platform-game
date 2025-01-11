@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -93,9 +94,13 @@ func newServer() *Server {
 
 // Initialize a new lobby.
 func newLobby(id string) *Lobby {
-	platforms := generateRandomPlatforms(10)
+	//platforms := generateRandomPlatforms(10)
 	//cubes := generateInitialCubes(5) // Create 5 initial falling cubes
+	count := 10    // Number of platforms
+	height := 4.0  // Adjustable height per step
+	radius := 10.0 // Radius of the spiral staircase
 
+	platforms := generateSpiralPlatforms(count, height, radius)
 	return &Lobby{
 		ID:         id,
 		clients:    make(map[*Client]bool),
@@ -109,6 +114,27 @@ func newLobby(id string) *Lobby {
 			Cubes:     []Position{}, // Initialize with an empty slice,
 		},
 	}
+}
+
+// Generate spiral staircase platforms
+func generateSpiralPlatforms(count int, height float64, radius float64) []Position {
+	platforms := make([]Position, 0)
+	angleIncrement := 360.0 / float64(count) // Calculate the angle increment for each platform
+
+	for i := 0; i < count; i++ {
+		angleInRadians := (angleIncrement * float64(i)) * (math.Pi / 180.0) // Convert to radians
+
+		// Calculate positions in a circular/spiral manner
+		newPlatform := Position{
+			X: radius * math.Cos(angleInRadians), // X position based on radius and angle
+			Y: height * float64(i),               // Increment height with each step
+			Z: radius * math.Sin(angleInRadians), // Z position based on radius and angle
+		}
+
+		platforms = append(platforms, newPlatform)
+	}
+
+	return platforms
 }
 
 // Generate random platforms for the game
