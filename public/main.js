@@ -175,9 +175,23 @@ class Player {
     this.mesh.position.copy(this.body.position);
     this.mesh.quaternion.copy(this.body.quaternion);
 
+    // Check if the player is lying on their side
+    const up = new CANNON.Vec3(0, 1, 0);  // Up vector in world space
+    const forward = this.body.quaternion.vmult(up); // Get the player's upward direction
+
+    // Determine if the player is on their side
+    if (Math.abs(forward.y) < 0.5) { // If the player is approximately horizontal
+        // Reset the player's rotation to upright
+        const uprightQuaternion = new CANNON.Quaternion(); // New Quaternion
+        uprightQuaternion.set(0, 0, 0, 1); // Set to upright quaternion (identity)
+
+        this.body.quaternion.copy(uprightQuaternion); // Reset orientation to upright
+        this.body.position.y = 2; // Adjust Y position as needed (to remain above ground)
+    }
+
     // Reset jump ability if touching ground
     if (this.mesh.position.y <= 2) {
-      this.canJump = true;
+        this.canJump = true;
     }
   }
 
@@ -197,6 +211,15 @@ class Player {
     this.body.position.set(pos.x, pos.y, pos.z);
     this.update(0); // Call update to sync the mesh position
   }
+}
+
+// Utility function to convert CANNON quaternion to Euler angles
+function quaternionToEuler(quaternion) {
+  const euler = new THREE.Euler();
+  // Create THREE.Quaternion to convert
+  const threeQuaternion = new THREE.Quaternion(quaternion.x, quaternion.y, quaternion.z, quaternion.w);
+  euler.setFromQuaternion(threeQuaternion);
+  return euler;
 }
 
 // Initialize Players
