@@ -30,6 +30,7 @@ function setupWebSocket() {
 
   socket.onclose = () => {
     console.log("Disconnected from server");
+    // Optional: Reconnect logic can be added here.
   };
 }
 
@@ -70,23 +71,18 @@ function hideLobbyModal() {
 setupWebSocket();
 
 // Event Listeners for Lobby Actions
+// Join and Create Lobby Buttons
 document.getElementById("joinLobbyBtn").addEventListener("click", () => {
   const lobbyID = document.getElementById("lobbyIDInput").value.trim();
   if (lobbyID === "") {
-    document.getElementById("lobbyError").innerText =
-      "Please enter a Lobby ID.";
+    document.getElementById("lobbyError").innerText = "Please enter a Lobby ID.";
     return;
   }
-  sendMessage({
-    type: MESSAGE_TYPES.JOIN_LOBBY,
-    lobbyID: lobbyID,
-  });
+  sendMessage({ type: MESSAGE_TYPES.JOIN_LOBBY, lobbyID: lobbyID });
 });
 
 document.getElementById("createLobbyBtn").addEventListener("click", () => {
-  sendMessage({
-    type: MESSAGE_TYPES.CREATE_LOBBY,
-  });
+  sendMessage({ type: MESSAGE_TYPES.CREATE_LOBBY });
 });
 
 function sendMessage(message) {
@@ -169,25 +165,19 @@ class Player {
 
     // Movement Properties
     this.speed = 10;
-    this.jumpSpeed = 5; // Adjusted for better physics
-    this.canJump = true; // Allow jumps initially
-
+    this.jumpSpeed = 20;
+    this.canJump = true;
     this.id = id;
   }
 
   update(delta) {
-    // Update Three.js mesh based on Cannon.js body position
+    // Sync Three.js mesh with Cannon.js body position and rotation
     this.mesh.position.copy(this.body.position);
-
-    // Resetting rotation to keep player upright
-    this.body.quaternion.set(0, this.body.quaternion.y, 0, 1); // Set to upright orientation
-
-    // Move back the visual mesh a bit to align better
-    this.mesh.quaternion.set(0, this.body.quaternion.y, 0, 1);
+    this.mesh.quaternion.copy(this.body.quaternion);
 
     // Reset jump ability if touching ground
     if (this.mesh.position.y <= 2) {
-      this.canJump = true; // Reset jump ability
+      this.canJump = true;
     }
   }
 
@@ -204,7 +194,8 @@ class Player {
   }
 
   setPosition(pos) {
-    this.body.position.set(pos.x, pos.y, pos.z); // Sync position with server
+    this.body.position.set(pos.x, pos.y, pos.z);
+    this.update(0); // Call update to sync the mesh position
   }
 }
 
@@ -217,9 +208,10 @@ const platforms = [];
 function createPlatform(position) {
   const platformBody = new CANNON.Body({
     mass: 0,
-    position: new CANNON.Vec3(position.x, position.y, position.z),
+    position: new CANNON.Vec3(position.x, position.y, position.z)
   });
-  const platformShape = new CANNON.Box(new CANNON.Vec3(5, 0.5, 5)); // Define size
+
+  const platformShape = new CANNON.Box(new CANNON.Vec3(5, 0.5, 5));
   platformBody.addShape(platformShape);
   world.addBody(platformBody);
   return platformBody;
@@ -303,28 +295,27 @@ function animate() {
   renderer.render(scene, camera);
 }
 
+// Cube Class for collectibles
 class Cube {
   constructor(position) {
     // Create the physical body for the cube
     this.body = new CANNON.Body({
-      mass: 1, // Set mass to allow it to fall
+      mass: 1, // Allow it to fall
       position: new CANNON.Vec3(position.x, position.y, position.z),
     });
-    const cubeShape = new CANNON.Box(new CANNON.Vec3(2.5, 2.5, 2.5)); // Half dimensions (size)
+
+    const cubeShape = new CANNON.Box(new CANNON.Vec3(2.5, 2.5, 2.5));
     this.body.addShape(cubeShape);
     world.addBody(this.body);
 
     // Create the visual representation of the cube
     const geometry = new THREE.BoxGeometry(5, 5, 5);
-    const material = new THREE.MeshStandardMaterial({
-      color: Math.random() * 0xffffff,
-    });
+    const material = new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff });
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.position.copy(this.body.position);
     scene.add(this.mesh);
 
-    // Optional userData for identifying cubes
-    this.mesh.userData.type = "cube";
+    this.mesh.userData.type = "cube"; // Optional userData for identifying cubes
   }
 
   update() {
@@ -332,17 +323,22 @@ class Cube {
     this.mesh.position.copy(this.body.position);
     this.mesh.quaternion.copy(this.body.quaternion);
   }
+
+  dispose() {
+    // Dispose of the mesh and remove from the scene
+    scene.remove(this.mesh);
+    this.mesh.geometry.dispose();
+    this.mesh.material.dispose();
+  }
 }
 
-const cubes = [];
 // Function to create cubes from server positions
+const cubes = [];
 function updateCubes(cubePositions) {
   // Clear existing cubes
   while (cubes.length > 0) {
     const cubeToRemove = cubes.pop();
-    scene.remove(cubeToRemove.mesh);
-    cubeToRemove.mesh.geometry.dispose();
-    cubeToRemove.mesh.material.dispose();
+    cubeToRemove.dispose(); // Properly dispose of cube objects
     world.remove(cubeToRemove.body);
   }
 
@@ -353,7 +349,7 @@ function updateCubes(cubePositions) {
   }
 }
 
-// Collection of Cubes
+// Collect Cubes Function
 function collectCubes(player) {
   const playerBox = new THREE.Box3().setFromObject(player.mesh);
 
@@ -361,13 +357,11 @@ function collectCubes(player) {
     const cube = cubes[i];
     const cubeBox = new THREE.Box3().setFromObject(cube.mesh);
 
+    // Check for intersection
     if (playerBox.intersectsBox(cubeBox)) {
-      scene.remove(cube.mesh); // Remove the cube from the scene
-      cube.mesh.geometry.dispose();
-      cube.mesh.material.dispose();
-      world.remove(cube.body); // Remove the body from Cannon world
+      cube.dispose(); // Dispose of the cube when collected
       cubes.splice(i, 1); // Remove from cubes array
-      notifyServerCubeCollected(player.id); // Notify server about the collected cube
+      notifyServerCubeCollected(player.id); // Notify server
       console.log(`Player ${player.id} collected a cube`);
     }
   }
@@ -420,10 +414,10 @@ function updateCamera() {
 }
 
 var cubeInit = false;
+var platformInit = false;
 // Update the game state with the latest data from the server
 function updateGameState(state) {
-  console.log("Updating game state:", state); // Log the entire state update for debugging
-  console.log("cubes:", state.cubes.length);
+  // console.log("Updating game state:", state); // Log the entire state update for debugging
   if (state.player1 && state.player1.position) {
     player1.setPosition(state.player1.position); // Update player 1 position
   }
@@ -432,8 +426,9 @@ function updateGameState(state) {
   }
 
   // Update platform positions if provided
-  if (state.platforms) {
+  if (state.platforms && !platformInit) {
     updatePlatforms(state.platforms);
+    platformInit = true;
   }
 
   if (state.cubes.length > 0 && !cubeInit) {
@@ -468,22 +463,29 @@ function countCubesInScene() {
   return cubeCount;
 }
 
-// Update platforms in the scene
-// Update Platforms in the scene
 function updatePlatforms(platformPositions) {
-  // Clear existing platforms
-  platforms.forEach((platform) => world.remove(platform));
-  platforms.length = 0; // Clear the array
+  // Clear existing platforms from the physics world and the scene
+  platforms.forEach(({ body, mesh }) => {
+    world.remove(body); // Remove from the physics world
+    scene.remove(mesh); // Remove from the scene
+    mesh.geometry.dispose(); // Dispose of geometry
+    mesh.material.dispose(); // Dispose of material
+  });
+
+  // Clear the platforms array for new platforms
+  platforms.length = 0;
 
   // Create new platforms
-  platformPositions.forEach((pos) => {
-    const platform = createPlatform(pos); // Create physical platform
+  platformPositions.forEach(pos => {
+    const platformBody = createPlatform(pos); // Create physical platform
     const meshGeometry = new THREE.BoxGeometry(10, 1, 10);
     const meshMaterial = new THREE.MeshStandardMaterial({ color: 0x8b0000 });
     const mesh = new THREE.Mesh(meshGeometry, meshMaterial);
     mesh.position.set(pos.x, pos.y, pos.z);
-    scene.add(mesh);
-    platforms.push(platform); // Store the body
+    scene.add(mesh); // Add mesh visual representation
+
+    // Store platform body and mesh together
+    platforms.push({ body: platformBody, mesh: mesh }); // Save the platform body and its mesh
   });
 }
 
