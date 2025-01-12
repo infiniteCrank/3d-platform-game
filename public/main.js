@@ -158,7 +158,11 @@ class Player {
     this.body = new CANNON.Body({
       mass: 1,
       position: new CANNON.Vec3(0, 2, 0),
+      linearDamping: 0.2,
+      angularDamping: 0.5,
     });
+
+    // Use a box shape for the collider
     const playerShape = new CANNON.Box(new CANNON.Vec3(1, 2, 1));
     this.body.addShape(playerShape);
     world.addBody(this.body);
@@ -172,9 +176,14 @@ class Player {
   }
 
   update(delta) {
-    // Update Three.js mesh based on Cannon.js body position and quaternion
+    // Update Three.js mesh based on Cannon.js body position
     this.mesh.position.copy(this.body.position);
-    this.mesh.quaternion.copy(this.body.quaternion);
+
+    // Resetting rotation to keep player upright
+    this.body.quaternion.set(0, this.body.quaternion.y, 0, 1); // Set to upright orientation
+
+    // Move back the visual mesh a bit to align better
+    this.mesh.quaternion.set(0, this.body.quaternion.y, 0, 1);
 
     // Reset jump ability if touching ground
     if (this.mesh.position.y <= 2) {
@@ -261,11 +270,16 @@ function sendInput(input) {
 const clock = new THREE.Clock();
 
 function animate() {
+  if (document.hidden) {
+    requestAnimationFrame(animate);
+    return;
+  }
   requestAnimationFrame(animate);
   const delta = clock.getDelta();
 
   // Step the Cannon.js world
-  world.step(1 / 60, delta, 3);
+  //world.step(1 / 60, delta, 3);
+  world.step(1 / 30, delta, 1);// Example of less frequent updates
 
   // Handle player controls for both players
   handlePlayerControls(player1); // For player 1
@@ -327,6 +341,8 @@ function updateCubes(cubePositions) {
   while (cubes.length > 0) {
     const cubeToRemove = cubes.pop();
     scene.remove(cubeToRemove.mesh);
+    cubeToRemove.mesh.geometry.dispose();
+    cubeToRemove.mesh.material.dispose();
     world.remove(cubeToRemove.body);
   }
 
@@ -347,6 +363,8 @@ function collectCubes(player) {
 
     if (playerBox.intersectsBox(cubeBox)) {
       scene.remove(cube.mesh); // Remove the cube from the scene
+      cube.mesh.geometry.dispose();
+      cube.mesh.material.dispose();
       world.remove(cube.body); // Remove the body from Cannon world
       cubes.splice(i, 1); // Remove from cubes array
       notifyServerCubeCollected(player.id); // Notify server about the collected cube
