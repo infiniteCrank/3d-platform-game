@@ -335,6 +335,10 @@ class Cube {
 // Function to create cubes from server positions
 const cubes = [];
 function updateCubes(cubePositions) {
+  //this fixes the extra cube problem 
+  if(cubePositions.length < 5){
+    return
+  }
   // Clear existing cubes
   while (cubes.length > 0) {
     const cubeToRemove = cubes.pop();
