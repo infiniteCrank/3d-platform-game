@@ -14,6 +14,8 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "cannon": "^0.6.2",
+    "oimo": "^1.0.9",
     "three": "^0.169.0"
   }
 }

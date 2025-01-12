@@ -15,7 +15,6 @@
       width: 100%;
       height: 100%;
       background: rgba(0,0,0,0.8);
-      display: flex;
       justify-content: center;
       align-items: center;
       z-index: 1000;
@@ -50,6 +49,10 @@
       display: none;
     }
 
+    .show {
+      display: flex;
+    }
+
     /* Game Info Overlay */
     #info {
       position: absolute;
@@ -65,7 +68,7 @@
 </head>
 <body>
   <!-- Lobby Modal -->
-  <div id="lobbyModal">
+  <div id="lobbyModal" class="show">
     <div id="lobbyContent">
       <h2>Join a Game Lobby</h2>
       <input type="text" id="lobbyIDInput" placeholder="Enter Lobby ID">
@@ -79,12 +82,12 @@
 
   <!-- Game Info Overlay -->
   <div id="info" class="hidden">
-    <h3>Player 1 Controls:</h3>
-    <p>Move: W, A, S, D</p>
+    <h3>Player Controls:</h3>
+    <p>Move: Arrow Keys</p>
     <p>Jump: Space</p>
-    <h3>Player 2 Controls:</h3>
-    <p>Move: I, J, K, L</p>
-    <p>Jump: O</p>
+    <div id="totalCubes"></div>
+    <div id="player1Cubes"></div>
+    <div id="player2Cubes"></div>
   </div>
 
   <!-- Three.js CDN -->
@@ -97,5 +100,6 @@
 </script>  
   <!-- Your JavaScript file -->
   <script type="module" src="main.js"></script>
+  <script src="http://localhost:8080/node_modules/cannon/build/cannon.min.js"></script>
 </body>
 </html>

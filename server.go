@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"net/http"
 	"strconv"
@@ -26,8 +28,12 @@ type PlayerState struct {
 
 // GameState holds the state of the game within a lobby.
 type GameState struct {
-	Player1 PlayerState `json:"player1"`
-	Player2 PlayerState `json:"player2"`
+	Player1      PlayerState `json:"player1"`
+	Player2      PlayerState `json:"player2"`
+	Platforms    []Position  `json:"platforms"`
+	Cubes        []Position  `json:"cubes"` // Added cubes to the game state
+	Player1Cubes int64       `json:"player1Cubes"`
+	Player2Cubes int64       `json:"player2Cubes"`
 }
 
 // InputMessage represents input from clients.
@@ -36,6 +42,7 @@ type InputMessage struct {
 	LobbyID   string     `json:"lobbyID,omitempty"`
 	Player    string     `json:"player,omitempty"`
 	Action    string     `json:"action,omitempty"`
+	PlayerID  string     `json:"playerID,omitempty"` // Indicate player ID for collection
 	Direction *Direction `json:"direction,omitempty"`
 }
 
@@ -87,17 +94,104 @@ func newServer() *Server {
 
 // Initialize a new lobby.
 func newLobby(id string) *Lobby {
+	//platforms := generateRandomPlatforms(10)
+	//cubes := generateInitialCubes(5) // Create 5 initial falling cubes
+	count := 10    // Number of platforms
+	height := 4.0  // Adjustable height per step
+	radius := 10.0 // Radius of the spiral staircase
+
+	platforms := generateSpiralPlatforms(count, height, radius)
 	return &Lobby{
 		ID:         id,
 		clients:    make(map[*Client]bool),
-		broadcast:  make(chan []byte),
+		broadcast:  make(chan []byte, 256),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		state: GameState{
-			Player1: PlayerState{Position: Position{X: 0, Y: 2, Z: 0}},
-			Player2: PlayerState{Position: Position{X: 0, Y: 2, Z: 0}},
+			Player1:   PlayerState{Position: Position{X: 0, Y: 2, Z: 0}},
+			Player2:   PlayerState{Position: Position{X: 0, Y: 2, Z: 0}},
+			Platforms: platforms,
+			Cubes:     []Position{}, // Initialize with an empty slice,
 		},
 	}
+}
+
+// Generate spiral staircase platforms
+func generateSpiralPlatforms(count int, height float64, radius float64) []Position {
+	platforms := make([]Position, 0)
+	angleIncrement := 360.0 / float64(count) // Calculate the angle increment for each platform
+
+	for i := 0; i < count; i++ {
+		angleInRadians := (angleIncrement * float64(i)) * (math.Pi / 180.0) // Convert to radians
+
+		// Calculate positions in a circular/spiral manner
+		newPlatform := Position{
+			X: radius * math.Cos(angleInRadians), // X position based on radius and angle
+			Y: height * float64(i),               // Increment height with each step
+			Z: radius * math.Sin(angleInRadians), // Z position based on radius and angle
+		}
+
+		platforms = append(platforms, newPlatform)
+	}
+
+	return platforms
+}
+
+// Generate random platforms for the game
+func generateRandomPlatforms(count int) []Position {
+	randomSource := rand.New(rand.NewSource(time.Now().UnixNano())) // Create a new random source
+	platforms := make([]Position, 0)
+
+	maxInitialHeight := 3.0
+
+	for i := 0; i < count; i++ {
+		var newPlatform Position
+		if i == 0 {
+			// First platform with a max height of 3 and a random Z position
+			newPlatform = Position{
+				X: generateRandomFloat(-140, 140),            // Random X within range [-2, 2]
+				Y: randomSource.Float64() * maxInitialHeight, // Y can be 0 to maxInitialHeight
+				Z: generateRandomFloat(-140, 140),            // Random Z within range [-90, 90]
+			}
+		} else {
+			// Increase the Y value for each subsequent platform and add random Z coordinate
+			newPlatform = Position{
+				X: generateRandomFloat(-140, 140), // Random X within range [-2, 2]
+				Y: float64(i + 2),                 // Height Y increases by 1 for each platform (starting from 2)
+				Z: generateRandomFloat(-140, 140),
+			}
+		}
+
+		// Adjust X coordinate to be within horizontal distance of 2 from the platform below
+		if len(platforms) > 0 {
+			maxX := platforms[len(platforms)-1].X + 4
+			minX := platforms[len(platforms)-1].X - 4
+			newPlatform.X = minX + (randomSource.Float64() * (maxX - minX)) // Randomize within the limits
+		}
+
+		platforms = append(platforms, newPlatform)
+	}
+
+	return platforms
+}
+
+// Generate a random float64 between min and max (inclusive)
+func generateRandomFloat(min, max float64) float64 {
+	randomSource := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return randomSource.Float64()*(max-min) + min
+}
+
+// Generate initial cubes for the game
+func generateInitialCubes(count int) []Position {
+	cubes := make([]Position, count)
+	for i := 0; i < count; i++ {
+		cubes[i] = Position{
+			X: (rand.Float64() * 180) - 90,
+			Y: 50, // Starting height above the ground for falling cubes
+			Z: (rand.Float64() * 180) - 90,
+		}
+	}
+	return cubes
 }
 
 // RunLobby continuously listens for lobby events.
@@ -107,12 +201,15 @@ func (s *Server) runLobby(lobby *Lobby) {
 		case client := <-lobby.register:
 			lobby.clients[client] = true
 			log.Printf("Client registered to Lobby %s as %s", lobby.ID, client.playerID)
-			// Send initial game state to the newly joined client
 			lobby.sendState(client)
-			// If lobby is full, start the game
+			// If the lobby is full, start the game
 			if len(lobby.clients) == 2 {
+				log.Println("Lobby is full. Starting game and generating cubes...")
+				lobby.state.Cubes = generateInitialCubes(5) // Generate cubes only when both players are present
+
 				lobby.broadcastGameStart()
 			}
+			log.Printf("Number of clients in lobby %s: %d", lobby.ID, len(lobby.clients))
 		case client := <-lobby.unregister:
 			if _, ok := lobby.clients[client]; ok {
 				delete(lobby.clients, client)
@@ -120,14 +217,23 @@ func (s *Server) runLobby(lobby *Lobby) {
 				log.Printf("Client unregistered from Lobby %s", lobby.ID)
 			}
 		case message := <-lobby.broadcast:
-			for client := range lobby.clients {
-				select {
-				case client.send <- message:
-				default:
-					close(client.send)
-					delete(lobby.clients, client)
-				}
-			}
+			lobby.broadcastToClients(message)
+		}
+	}
+}
+
+// Broadcast to all clients safely.
+func (l *Lobby) broadcastToClients(message []byte) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+
+	for client := range l.clients {
+		select {
+		case client.send <- message:
+		default:
+			// If sending fails, close the send channel and remove the client
+			close(client.send)
+			delete(l.clients, client)
 		}
 	}
 }
@@ -158,6 +264,7 @@ func (l *Lobby) broadcastGameStart() {
 		log.Println("Error marshalling game_start:", err)
 		return
 	}
+	log.Println("Broadcasting game start message to clients.")
 	l.broadcast <- startMessage
 }
 
@@ -171,7 +278,7 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 
 	client := &Client{
 		conn: conn,
-		send: make(chan []byte, 256),
+		send: make(chan []byte, 256), // Buffered channel for messages to send to the client
 	}
 
 	go client.writePump()
@@ -326,10 +433,27 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 	lobby.mutex.Lock()
 	defer lobby.mutex.Unlock()
 
+	// Apply gravity and handle jumping
+	gravity := 0.1
+	if c.playerID == "player1" {
+		lobby.state.Player1.Position.Y -= gravity
+	} else if c.playerID == "player2" {
+		lobby.state.Player2.Position.Y -= gravity
+	}
+
+	// Ensure the player's Y position doesn't fall below ground level
+	if lobby.state.Player1.Position.Y < 2 {
+		lobby.state.Player1.Position.Y = 2
+	}
+
+	if lobby.state.Player2.Position.Y < 2 {
+		lobby.state.Player2.Position.Y = 2
+	}
+
 	switch input.Action {
 	case "move":
+		moveAmount := 0.5 // Adjust movement scaling as needed
 		if input.Direction != nil {
-			moveAmount := 0.5 // Adjust movement scaling as needed
 			if c.playerID == "player1" {
 				lobby.state.Player1.Position.X += input.Direction.X * moveAmount
 				lobby.state.Player1.Position.Z += input.Direction.Z * moveAmount
@@ -339,12 +463,24 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 			}
 		}
 	case "jump":
-		if c.playerID == "player1" {
-			lobby.state.Player1.Position.Y += 1 // Simplistic jump
-		} else if c.playerID == "player2" {
-			lobby.state.Player2.Position.Y += 1 // Simplistic jump
+		if c.playerID == "player1" && lobby.state.Player1.Position.Y <= 2 {
+			lobby.state.Player1.Position.Y += 4 // Simulate jump height
+		} else if c.playerID == "player2" && lobby.state.Player2.Position.Y <= 2 {
+			lobby.state.Player2.Position.Y += 4 // Simulate jump height
+		}
+	case "collect":
+		// Handle cube collection
+		if input.PlayerID != "" {
+			if input.PlayerID == "player1" {
+				collectCube(&lobby.state.Player1, "player1", lobby)
+			} else if input.PlayerID == "player2" {
+				collectCube(&lobby.state.Player2, "player2", lobby)
+			}
 		}
 	}
+
+	// Check for collisions with cubes
+	checkCubeCollision(lobby)
 
 	// Broadcast updated state to all clients in the lobby
 	stateBytes, err := json.Marshal(map[string]interface{}{
@@ -358,21 +494,55 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 	lobby.broadcast <- stateBytes
 }
 
+// CollectCube checks if a player has collected a cube
+func collectCube(player *PlayerState, playerId string, lobby *Lobby) {
+	for i, cube := range lobby.state.Cubes {
+		if player.Position.X >= cube.X-5 && player.Position.X <= cube.X+5 &&
+			player.Position.Z >= cube.Z-5 && player.Position.Z <= cube.Z+5 &&
+			player.Position.Y <= cube.Y+5 {
+			fmt.Printf("%v collected a cube at position %v!", playerId, player.Position)
+			if playerId == "player1" {
+				lobby.state.Player1Cubes++
+			}
+			if playerId == "player2" {
+				lobby.state.Player2Cubes++
+			}
+			// Remove the cube from the lobby
+			lobby.state.Cubes = append(lobby.state.Cubes[:i], lobby.state.Cubes[i+1:]...) // Remove the cube
+			break                                                                         // Exit after collecting one cube
+		}
+	}
+
+	// Check if all cubes are collected
+	if len(lobby.state.Cubes) == 0 {
+		// Generate and add 5 new cubes
+		newCubes := generateInitialCubes(5)
+		lobby.state.Cubes = append(lobby.state.Cubes, newCubes...)
+		fmt.Println("All cubes collected! Generating new cubes...")
+	}
+}
+
+// CheckCubeCollision checks player positions against cubes
+func checkCubeCollision(lobby *Lobby) {
+	// Implement if you want to handle real-time checking here
+}
+
 // Generate a unique lobby ID.
 func generateLobbyID() string {
 	rand.Seed(time.Now().UnixNano())
-	return strconv.Itoa(rand.Intn(100000)) // Simple numeric ID. For better uniqueness, consider using UUIDs.
+	return strconv.Itoa(rand.Intn(100000)) // Simple numeric ID; for better uniqueness, consider using UUIDs.
 }
 
+// Main function to run the server
 func main() {
 	server := newServer()
 
-	http.HandleFunc("/ws", server.handleConnections)
+	http.HandleFunc("/ws", server.handleConnections)        // Handle WebSocket connections
 	http.Handle("/", http.FileServer(http.Dir("./public"))) // Serve client files
 
 	log.Println("Server started on :8080")
-	err := http.ListenAndServe(":8080", nil)
+	err := http.ListenAndServe(":8080", nil) // Start listening on port 8080
 	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+		log.Fatal("ListenAndServe: ", err) // Log any errors starting the server
 	}
 }

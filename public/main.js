@@ -1,90 +1,88 @@
 // Import Three.js (if using modules)
-import * as THREE from 'three';
+import * as THREE from "three";
 
 // Define message types
 const MESSAGE_TYPES = {
-  CREATE_LOBBY: 'create_lobby',
-  JOIN_LOBBY: 'join_lobby',
-  LOBBY_CREATED: 'lobby_created',
-  LOBBY_JOINED: 'lobby_joined',
-  LOBBY_ERROR: 'lobby_error',
-  GAME_START: 'game_start',
-  GAME_STATE: 'game_state',
-  PLAYER_INPUT: 'player_input'
+  CREATE_LOBBY: "create_lobby",
+  JOIN_LOBBY: "join_lobby",
+  LOBBY_CREATED: "lobby_created",
+  LOBBY_JOINED: "lobby_joined",
+  LOBBY_ERROR: "lobby_error",
+  GAME_START: "game_start",
+  GAME_STATE: "game_state",
+  PLAYER_INPUT: "player_input",
 };
 
 // WebSocket Setup
 let socket;
 
 function setupWebSocket() {
-  socket = new WebSocket('ws://' + window.location.host + '/ws');
+  socket = new WebSocket("ws://" + window.location.host + "/ws");
 
   socket.onopen = () => {
-    console.log('Connected to server');
+    console.log("Connected to server");
   };
 
   socket.onmessage = (event) => {
     const data = JSON.parse(event.data);
-    switch (data.type) {
-      case MESSAGE_TYPES.LOBBY_CREATED:
-        console.log(`Lobby created with ID: ${data.lobbyID}`);
-        alert(`Lobby created! Lobby ID: ${data.lobbyID}`);
-        break;
-      case MESSAGE_TYPES.LOBBY_JOINED:
-        console.log(`Joined Lobby: ${data.lobbyID} as ${data.playerID}`);
-        playerID = data.playerID;
-        // Hide lobby modal and show game info
-        document.getElementById('lobbyModal').classList.add('hidden');
-        document.getElementById('info').classList.remove('hidden');
-        break;
-      case MESSAGE_TYPES.LOBBY_ERROR:
-        console.error(`Lobby Error: ${data.message}`);
-        document.getElementById('lobbyError').innerText = data.message;
-        break;
-      case MESSAGE_TYPES.GAME_START:
-        console.log('Game is starting!');
-        // Additional game start logic if needed
-        break;
-      case MESSAGE_TYPES.GAME_STATE:
-        // Update game state
-        updateGameState(data.state);
-        break;
-      default:
-        console.log('Unknown message type:', data.type);
-    }
+    handleServerMessage(data);
   };
 
   socket.onclose = () => {
-    console.log('Disconnected from server');
+    console.log("Disconnected from server");
+    // Optional: Reconnect logic can be added here.
   };
+}
+
+function handleServerMessage(data) {
+  switch (data.type) {
+    case MESSAGE_TYPES.LOBBY_CREATED:
+      alert(`Lobby created! Lobby ID: ${data.lobbyID}`);
+      playerID = "player1";
+      console.log(`Joined Lobby: ${data.lobbyID} as ${playerID}`);
+      hideLobbyModal();
+      break;
+    case MESSAGE_TYPES.LOBBY_JOINED:
+      playerID = data.playerID;
+      console.log(`Joined Lobby: ${data.lobbyID} as ${playerID}`);
+      hideLobbyModal();
+      break;
+    case MESSAGE_TYPES.LOBBY_ERROR:
+      console.error(`Lobby Error: ${data.message}`);
+      document.getElementById("lobbyError").innerText = data.message;
+      break;
+    case MESSAGE_TYPES.GAME_START:
+      console.log("Game is starting!");
+      break;
+    case MESSAGE_TYPES.GAME_STATE:
+      updateGameState(data.state);
+      break;
+    default:
+      console.log("Unknown message type:", data.type);
+  }
+}
+
+function hideLobbyModal() {
+  document.getElementById("lobbyModal").classList.remove("show");
+  document.getElementById("lobbyModal").classList.add("hidden");
+  document.getElementById("info").classList.remove("hidden");
 }
 
 setupWebSocket();
 
-// Lobby Modal Elements
-const lobbyModal = document.getElementById('lobbyModal');
-const lobbyIDInput = document.getElementById('lobbyIDInput');
-const joinLobbyBtn = document.getElementById('joinLobbyBtn');
-const createLobbyBtn = document.getElementById('createLobbyBtn');
-const lobbyError = document.getElementById('lobbyError');
-
 // Event Listeners for Lobby Actions
-joinLobbyBtn.addEventListener('click', () => {
-  const lobbyID = lobbyIDInput.value.trim();
-  if (lobbyID === '') {
-    lobbyError.innerText = 'Please enter a Lobby ID.';
+// Join and Create Lobby Buttons
+document.getElementById("joinLobbyBtn").addEventListener("click", () => {
+  const lobbyID = document.getElementById("lobbyIDInput").value.trim();
+  if (lobbyID === "") {
+    document.getElementById("lobbyError").innerText = "Please enter a Lobby ID.";
     return;
   }
-  sendMessage({
-    type: MESSAGE_TYPES.JOIN_LOBBY,
-    lobbyID: lobbyID
-  });
+  sendMessage({ type: MESSAGE_TYPES.JOIN_LOBBY, lobbyID: lobbyID });
 });
 
-createLobbyBtn.addEventListener('click', () => {
-  sendMessage({
-    type: MESSAGE_TYPES.CREATE_LOBBY
-  });
+document.getElementById("createLobbyBtn").addEventListener("click", () => {
+  sendMessage({ type: MESSAGE_TYPES.CREATE_LOBBY });
 });
 
 function sendMessage(message) {
@@ -99,7 +97,10 @@ let playerID = null; // 'player1' or 'player2'
 // Three.js Initialization
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(
-  75, window.innerWidth / window.innerHeight, 0.1, 1000
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
 );
 camera.position.set(0, 20, 30);
 
@@ -108,11 +109,15 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
 // Handle Window Resize
-window.addEventListener('resize', () => {
+window.addEventListener("resize", () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
 });
+
+// Cannon.js World Setup
+const world = new CANNON.World();
+world.gravity.set(0, -9.82, 0); // Gravity
 
 // Lighting
 const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
@@ -123,207 +128,366 @@ scene.add(directionalLight);
 
 // Ground
 const groundGeometry = new THREE.BoxGeometry(200, 1, 200);
-const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x228B22 });
+const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x228b22 });
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 ground.position.y = -0.5;
 scene.add(ground);
 
-// Platforms
-const platformGeometry = new THREE.BoxGeometry(10, 1, 10);
-const platformMaterial = new THREE.MeshStandardMaterial({ color: 0x8B0000 });
+const groundBody = new CANNON.Body({
+  mass: 0, // Static body
+  position: new CANNON.Vec3(0, -0.5, 0),
+});
+const groundShape = new CANNON.Box(new CANNON.Vec3(100, 0.5, 100));
+groundBody.addShape(groundShape);
+world.addBody(groundBody);
 
-for (let i = 0; i < 20; i++) {
-  const platform = new THREE.Mesh(platformGeometry, platformMaterial);
-  platform.position.set(
-    Math.random() * 180 - 90,
-    Math.random() * 40 + 5,
-    Math.random() * 180 - 90
-  );
-  scene.add(platform);
-}
-
-// Player Class
+// Player Class with Cannon Physics
 class Player {
   constructor(color, id) {
     const geometry = new THREE.BoxGeometry(2, 4, 2);
     const material = new THREE.MeshStandardMaterial({ color });
     this.mesh = new THREE.Mesh(geometry, material);
-    this.mesh.position.y = 2;
+    this.mesh.position.set(0, 2, 0);
     scene.add(this.mesh);
 
-    // Movement properties
-    this.velocity = new THREE.Vector3();
-    this.direction = new THREE.Vector3();
-    this.speed = 10;
-    this.jumpSpeed = 15;
-    this.canJump = false;
+    // Physics Body
+    this.body = new CANNON.Body({
+      mass: 1,
+      position: new CANNON.Vec3(0, 2, 0),
+      linearDamping: 0.2,
+      angularDamping: 0.5,
+    });
 
-    // Player ID
+    // Use a box shape for the collider
+    const playerShape = new CANNON.Box(new CANNON.Vec3(1, 2, 1));
+    this.body.addShape(playerShape);
+    world.addBody(this.body);
+
+    // Movement Properties
+    this.speed = 10;
+    this.jumpSpeed = 20;
+    this.canJump = true;
     this.id = id;
   }
 
   update(delta) {
-    // Apply gravity
-    this.velocity.y -= 30 * delta; // Stronger gravity for realism
+    // Sync Three.js mesh with Cannon.js body position and rotation
+    this.mesh.position.copy(this.body.position);
+    this.mesh.quaternion.copy(this.body.quaternion);
 
-    // Update position
-    this.mesh.position.addScaledVector(this.velocity, delta);
-
-    // Collision with ground
+    // Reset jump ability if touching ground
     if (this.mesh.position.y <= 2) {
-      this.mesh.position.y = 2;
-      this.velocity.y = 0;
       this.canJump = true;
     }
-
-    // TODO: Implement collision with platforms
   }
 
   setDirection(x, z) {
-    this.direction.set(x, 0, z).normalize();
-    if (this.direction.length() > 0) {
-      this.velocity.x = this.direction.x * this.speed;
-      this.velocity.z = this.direction.z * this.speed;
-    } else {
-      this.velocity.x = 0;
-      this.velocity.z = 0;
-    }
+    const force = new CANNON.Vec3(x, 0, z).scale(this.speed);
+    this.body.applyForce(force, this.body.position);
   }
 
   jump() {
     if (this.canJump) {
-      this.velocity.y = this.jumpSpeed;
-      this.canJump = false;
+      this.body.velocity.y = this.jumpSpeed; // Set jump velocity
+      this.canJump = false; // Prevent double jumping
     }
   }
 
   setPosition(pos) {
-    this.mesh.position.set(pos.X, pos.Y, pos.Z);
+    this.body.position.set(pos.x, pos.y, pos.z);
+    this.update(0); // Call update to sync the mesh position
   }
 }
 
 // Initialize Players
-const player1 = new Player(0x0000ff, 'player1');
-const player2 = new Player(0xff00ff, 'player2');
+const player1 = new Player(0x0000ff, "player1");
+const player2 = new Player(0xff00ff, "player2");
+
+// Platforms Creation
+const platforms = [];
+function createPlatform(position) {
+  const platformBody = new CANNON.Body({
+    mass: 0,
+    position: new CANNON.Vec3(position.x, position.y, position.z)
+  });
+
+  const platformShape = new CANNON.Box(new CANNON.Vec3(5, 0.5, 5));
+  platformBody.addShape(platformShape);
+  world.addBody(platformBody);
+  return platformBody;
+}
 
 // Hide game info initially
-document.getElementById('info').classList.add('hidden');
+document.getElementById("info").classList.add("hidden");
 
 // Controls
 const keysPressed = {};
 
 // Event Listeners for Key Presses
-document.addEventListener('keydown', (event) => {
+document.addEventListener("keydown", (event) => {
   keysPressed[event.code] = true;
 
-  // Player 1 Jump
-  if (event.code === 'Space' && playerID === 'player1') {
-    player1.jump();
-    sendInput({ action: 'jump' });
-  }
-
-  // Player 2 Jump
-  if (event.code === 'KeyO' && playerID === 'player2') {
-    player2.jump();
-    sendInput({ action: 'jump' });
+  // Jump logic for both players using Space bar
+  if (event.code === "Space") {
+    if (playerID === "player1") {
+      player1.jump();
+      sendInput({ action: "jump", playerID: "player1" });
+    } else if (playerID === "player2") {
+      player2.jump();
+      sendInput({ action: "jump", playerID: "player2" });
+    }
   }
 });
 
-document.addEventListener('keyup', (event) => {
+document.addEventListener("keyup", (event) => {
   keysPressed[event.code] = false;
 });
 
 // Send Player Input to Server
 function sendInput(input) {
+  //console.log("Sending input: ", input);
   if (socket && socket.readyState === WebSocket.OPEN && playerID) {
-    socket.send(JSON.stringify({
-      type: MESSAGE_TYPES.PLAYER_INPUT,
-      action: input.action,
-      direction: input.direction || null
-    }));
+    socket.send(
+      JSON.stringify({
+        type: MESSAGE_TYPES.PLAYER_INPUT,
+        action: input.action,
+        playerID: input.playerID, // Include playerID for collection
+        direction: input.direction || null,
+      })
+    );
   }
 }
-
-// Define player identifiers
-// playerID is set when joining a lobby
-// It determines whether this client controls player1 or player2
 
 // Animation Loop
 const clock = new THREE.Clock();
 
 function animate() {
+  if (document.hidden) {
+    requestAnimationFrame(animate);
+    return;
+  }
   requestAnimationFrame(animate);
-
   const delta = clock.getDelta();
 
-  // Handle player1 controls
-  if (playerID === 'player1') {
-    let p1x = 0, p1z = 0;
-    if (keysPressed['KeyW'] || keysPressed['ArrowUp']) p1z -= 1;
-    if (keysPressed['KeyS'] || keysPressed['ArrowDown']) p1z += 1;
-    if (keysPressed['KeyA'] || keysPressed['ArrowLeft']) p1x -= 1;
-    if (keysPressed['KeyD'] || keysPressed['ArrowRight']) p1x += 1;
-    player1.setDirection(p1x, p1z);
-    if (p1x !== 0 || p1z !== 0) {
-      sendInput({
-        action: 'move',
-        direction: { x: p1x, z: p1z }
-      });
-    }
-  }
+  // Step the Cannon.js world
+  //world.step(1 / 60, delta, 3);
+  world.step(1 / 30, delta, 1);// Example of less frequent updates
 
-  // Handle player2 controls
-  if (playerID === 'player2') {
-    let p2x = 0, p2z = 0;
-    if (keysPressed['KeyI']) p2z -= 1;
-    if (keysPressed['KeyK']) p2z += 1;
-    if (keysPressed['KeyJ']) p2x -= 1;
-    if (keysPressed['KeyL']) p2x += 1;
-    player2.setDirection(p2x, p2z);
-    if (p2x !== 0 || p2z !== 0) {
-      sendInput({
-        action: 'move',
-        direction: { x: p2x, z: p2z }
-      });
-    }
-  }
+  // Handle player controls for both players
+  handlePlayerControls(player1); // For player 1
+  handlePlayerControls(player2); // For player 2
 
   // Update players
   player1.update(delta);
   player2.update(delta);
 
-  // Update camera
+  // Check for cube collection
+  collectCubes(player1); // Check for player1 collecting cubes
+  collectCubes(player2); // Check for player2 collecting cubes
+
+  // Update each cube
+  cubes.forEach((cube) => cube.update());
+
+  // Update camera to follow the active player
   updateCamera();
 
+  // Render the scene
   renderer.render(scene, camera);
 }
 
-animate();
+// Cube Class for collectibles
+class Cube {
+  constructor(position) {
+    // Create the physical body for the cube
+    this.body = new CANNON.Body({
+      mass: 1, // Allow it to fall
+      position: new CANNON.Vec3(position.x, position.y, position.z),
+    });
 
-// Update Camera to follow the active player
+    const cubeShape = new CANNON.Box(new CANNON.Vec3(2.5, 2.5, 2.5));
+    this.body.addShape(cubeShape);
+    world.addBody(this.body);
+
+    // Create the visual representation of the cube
+    const geometry = new THREE.BoxGeometry(5, 5, 5);
+    const material = new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff });
+    this.mesh = new THREE.Mesh(geometry, material);
+    this.mesh.position.copy(this.body.position);
+    scene.add(this.mesh);
+
+    this.mesh.userData.type = "cube"; // Optional userData for identifying cubes
+  }
+
+  update() {
+    // Sync the position of the Three.js mesh with the Cannon.js body
+    this.mesh.position.copy(this.body.position);
+    this.mesh.quaternion.copy(this.body.quaternion);
+  }
+
+  dispose() {
+    // Dispose of the mesh and remove from the scene
+    scene.remove(this.mesh);
+    this.mesh.geometry.dispose();
+    this.mesh.material.dispose();
+  }
+}
+
+// Function to create cubes from server positions
+const cubes = [];
+function updateCubes(cubePositions) {
+  // Clear existing cubes
+  while (cubes.length > 0) {
+    const cubeToRemove = cubes.pop();
+    cubeToRemove.dispose(); // Properly dispose of cube objects
+    world.remove(cubeToRemove.body);
+  }
+
+  // Create new cubes based on server data
+  for (const pos of cubePositions) {
+    const cube = new Cube(pos);
+    cubes.push(cube);
+  }
+}
+
+// Collect Cubes Function
+function collectCubes(player) {
+  const playerBox = new THREE.Box3().setFromObject(player.mesh);
+
+  for (let i = cubes.length - 1; i >= 0; i--) {
+    const cube = cubes[i];
+    const cubeBox = new THREE.Box3().setFromObject(cube.mesh);
+
+    // Check for intersection
+    if (playerBox.intersectsBox(cubeBox)) {
+      cube.dispose(); // Dispose of the cube when collected
+      cubes.splice(i, 1); // Remove from cubes array
+      notifyServerCubeCollected(player.id); // Notify server
+      console.log(`Player ${player.id} collected a cube`);
+    }
+  }
+}
+
+// notifyServerCubeCollected("player2");
+function notifyServerCubeCollected(playerID) {
+  sendInput({ action: "collect", playerID: playerID });
+}
+
+// Handle Player Controls Function
+function handlePlayerControls(player) {
+  let x = 0,
+    z = 0;
+
+  // Arrow Keys for both players
+  if (keysPressed["ArrowUp"]) z -= 1; // Move up
+  if (keysPressed["ArrowDown"]) z += 1; // Move down
+  if (keysPressed["ArrowLeft"]) x -= 1; // Move left
+  if (keysPressed["ArrowRight"]) x += 1; // Move right
+
+  player.setDirection(x, z); // Update player direction based on keys pressed
+  if (x !== 0 || z !== 0) {
+    sendInput({
+      action: "move",
+      playerID: player.id,
+      direction: { x: x, z: z },
+    });
+  }
+}
+
+// Update Camera Function
 function updateCamera() {
-  if (playerID === 'player1') {
-    camera.position.x = player1.mesh.position.x;
-    camera.position.y = player1.mesh.position.y + 20;
-    camera.position.z = player1.mesh.position.z + 30;
+  // Set camera position to follow the player
+  if (playerID === "player1") {
+    camera.position.set(
+      player1.mesh.position.x,
+      player1.mesh.position.y + 20,
+      player1.mesh.position.z + 30
+    );
     camera.lookAt(player1.mesh.position);
-  } else if (playerID === 'player2') {
-    camera.position.x = player2.mesh.position.x;
-    camera.position.y = player2.mesh.position.y + 20;
-    camera.position.z = player2.mesh.position.z + 30;
+  } else if (playerID === "player2") {
+    camera.position.set(
+      player2.mesh.position.x,
+      player2.mesh.position.y + 20,
+      player2.mesh.position.z + 30
+    );
     camera.lookAt(player2.mesh.position);
   }
 }
 
-// Placeholder function to update game state
+var cubeInit = false;
+var platformInit = false;
+// Update the game state with the latest data from the server
 function updateGameState(state) {
-  // Update player positions
-  if (state.Player1) {
-    player1.setPosition(state.Player1.Position);
+  // console.log("Updating game state:", state); // Log the entire state update for debugging
+  if (state.player1 && state.player1.position) {
+    player1.setPosition(state.player1.position); // Update player 1 position
   }
-  if (state.Player2) {
-    player2.setPosition(state.Player2.Position);
+  if (state.player2 && state.player2.position) {
+    player2.setPosition(state.player2.position); // Update player 2 position
   }
 
-  // Update other game elements as needed
+  // Update platform positions if provided
+  if (state.platforms && !platformInit) {
+    updatePlatforms(state.platforms);
+    platformInit = true;
+  }
+
+  if (state.cubes.length > 0 && !cubeInit) {
+    // Reset the cubes only if there are cubes available and the initialization hasn't happened yet
+    updateCubes(state.cubes);
+    cubeInit = true;
+  }
+  if (countCubesInScene() === 0) {
+    cubeInit = false;
+  }
+
+  var totalCubesElement = document.getElementById("totalCubes");
+  totalCubesElement.innerHTML = "Total Cubes: " + state.cubes.length;
+
+  var player1CubesElement = document.getElementById("player1Cubes");
+  player1CubesElement.innerHTML = "Player1 Cubes: " + state.player1Cubes;
+  var player2CubesElement = document.getElementById("player2Cubes");
+  player2CubesElement.innerHTML = "Player2 Cubes: " + state.player2Cubes;
 }
+
+// Function to count the number of cubes in the scene
+function countCubesInScene() {
+  let cubeCount = 0;
+
+  // Loop through all children in the scene
+  scene.children.forEach((child) => {
+    // Check if the child has userData type of 'cube'
+    if (child.userData.type === "cube") {
+      cubeCount++;
+    }
+  });
+  return cubeCount;
+}
+
+function updatePlatforms(platformPositions) {
+  // Clear existing platforms from the physics world and the scene
+  platforms.forEach(({ body, mesh }) => {
+    world.remove(body); // Remove from the physics world
+    scene.remove(mesh); // Remove from the scene
+    mesh.geometry.dispose(); // Dispose of geometry
+    mesh.material.dispose(); // Dispose of material
+  });
+
+  // Clear the platforms array for new platforms
+  platforms.length = 0;
+
+  // Create new platforms
+  platformPositions.forEach(pos => {
+    const platformBody = createPlatform(pos); // Create physical platform
+    const meshGeometry = new THREE.BoxGeometry(10, 1, 10);
+    const meshMaterial = new THREE.MeshStandardMaterial({ color: 0x8b0000 });
+    const mesh = new THREE.Mesh(meshGeometry, meshMaterial);
+    mesh.position.set(pos.x, pos.y, pos.z);
+    scene.add(mesh); // Add mesh visual representation
+
+    // Store platform body and mesh together
+    platforms.push({ body: platformBody, mesh: mesh }); // Save the platform body and its mesh
+  });
+}
+
+// Start the animation loop
+animate();
