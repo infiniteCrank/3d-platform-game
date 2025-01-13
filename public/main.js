@@ -272,22 +272,26 @@ document.addEventListener("keydown", (event) => {
 
   // Shooting logic - check if the enter key is pressed
   if (event.code === "Enter") {
-    const direction = new CANNON.Vec3(0, 0, -1); // Default forward direction
+    const direction = new CANNON.Vec3(0, 0, -1);
+    let playerPosition, projectileInput;
+    
     if (playerID === "player1") {
-      direction.set(0, 0, -1).vadd(player1.body.velocity);
-      const position = player1.mesh.position.clone();
-      projectiles.push(new Projectile(position, direction, playerID));
-      var projectileInput = { action: "shoot", playerID: "player1", direction: direction, position: position, playerID: playerID}
-      console.log(projectileInput)
-      sendInput(projectileInput);
+      playerPosition = player1.mesh.position.clone();
     } else if (playerID === "player2") {
-      direction.set(0, 0, -1).vadd(player2.body.velocity);
-      const position = player2.mesh.position.clone();
-      projectiles.push(new Projectile(position, direction, playerID));
-      var projectileInput = { action: "shoot", playerID: "player2", direction: direction, position: position, playerID: playerID}
-      console.log(projectileInput)
-      sendInput(projectileInput);
+      playerPosition = player2.mesh.position.clone();
     }
+  
+    const projectile = new Projectile(playerPosition, direction, playerID);
+    projectiles.push(projectile); // Add the projectile to the local projectiles array
+  
+    // Prepare the input to send, including the projectile's position and direction
+    projectileInput = { 
+      action: "shoot", 
+      playerID, 
+      position: playerPosition, 
+      direction: direction.clone()
+    };
+    sendInput(projectileInput); // Send to server
   }
 });
 
@@ -587,19 +591,20 @@ function countCubesInScene() {
   return cubeCount;
 }
 
-function updateProjectiles(projectiles){
-  projectiles.forEach((projectile) => {
-    console.log("***************** PROJECTILE **************************")
-    console.log(projectile)
-    if (playerID === "player1" && projectile.playerId === "player2") {
-      projectiles.push(new Projectile(projectile.position, projectile.velocity, projectile.playerId));
-      console.log("display player 2 projectile for player 1")
-    }else if (playerID === "player2" && projectile.playerId === "player1"){
-      console.log("display player 1 projectile for player 2")
-      projectiles.push(new Projectile(projectile.position, projectile.velocity, projectile.playerId));
-    }
-    console.log(projectile)
-  })
+function updateProjectiles(projectileData) {
+  const { position, velocity, playerId } = projectileData[0];
+  // Only append a new Projectile if it doesn't already exist
+  const existingProjectile = projectiles.find(p => (
+    p.body.position.x === position.x && 
+    p.body.position.y === position.y && 
+    p.body.position.z === position.z
+  ));
+
+  if (!existingProjectile) {
+    const projectile = new Projectile(position, velocity, playerId);
+    projectiles.push(projectile);
+    console.log(`Displayed projectile from ${playerId} for ${playerID}`);
+  }
 }
 
 function updatePlatforms(platformPositions) {
