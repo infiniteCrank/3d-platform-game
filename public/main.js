@@ -75,7 +75,8 @@ setupWebSocket();
 document.getElementById("joinLobbyBtn").addEventListener("click", () => {
   const lobbyID = document.getElementById("lobbyIDInput").value.trim();
   if (lobbyID === "") {
-    document.getElementById("lobbyError").innerText = "Please enter a Lobby ID.";
+    document.getElementById("lobbyError").innerText =
+      "Please enter a Lobby ID.";
     return;
   }
   sendMessage({ type: MESSAGE_TYPES.JOIN_LOBBY, lobbyID: lobbyID });
@@ -176,22 +177,23 @@ class Player {
     this.mesh.quaternion.copy(this.body.quaternion);
 
     // Check if the player is lying on their side
-    const up = new CANNON.Vec3(0, 1, 0);  // Up vector in world space
+    const up = new CANNON.Vec3(0, 1, 0); // Up vector in world space
     const forward = this.body.quaternion.vmult(up); // Get the player's upward direction
 
     // Determine if the player is on their side
-    if (Math.abs(forward.y) < 0.5) { // If the player is approximately horizontal
-        // Reset the player's rotation to upright
-        const uprightQuaternion = new CANNON.Quaternion(); // New Quaternion
-        uprightQuaternion.set(0, 0, 0, 1); // Set to upright quaternion (identity)
+    if (Math.abs(forward.y) < 0.5) {
+      // If the player is approximately horizontal
+      // Reset the player's rotation to upright
+      const uprightQuaternion = new CANNON.Quaternion(); // New Quaternion
+      uprightQuaternion.set(0, 0, 0, 1); // Set to upright quaternion (identity)
 
-        this.body.quaternion.copy(uprightQuaternion); // Reset orientation to upright
-        this.body.position.y = 2; // Adjust Y position as needed (to remain above ground)
+      this.body.quaternion.copy(uprightQuaternion); // Reset orientation to upright
+      this.body.position.y = 2; // Adjust Y position as needed (to remain above ground)
     }
 
     // Reset jump ability if touching ground
     if (this.mesh.position.y <= 2) {
-        this.canJump = true;
+      this.canJump = true;
     }
   }
 
@@ -217,7 +219,12 @@ class Player {
 function quaternionToEuler(quaternion) {
   const euler = new THREE.Euler();
   // Create THREE.Quaternion to convert
-  const threeQuaternion = new THREE.Quaternion(quaternion.x, quaternion.y, quaternion.z, quaternion.w);
+  const threeQuaternion = new THREE.Quaternion(
+    quaternion.x,
+    quaternion.y,
+    quaternion.z,
+    quaternion.w
+  );
   euler.setFromQuaternion(threeQuaternion);
   return euler;
 }
@@ -231,7 +238,7 @@ const platforms = [];
 function createPlatform(position) {
   const platformBody = new CANNON.Body({
     mass: 0,
-    position: new CANNON.Vec3(position.x, position.y, position.z)
+    position: new CANNON.Vec3(position.x, position.y, position.z),
   });
 
   const platformShape = new CANNON.Box(new CANNON.Vec3(5, 0.5, 5));
@@ -259,6 +266,11 @@ document.addEventListener("keydown", (event) => {
       player2.jump();
       sendInput({ action: "jump", playerID: "player2" });
     }
+  }
+
+  // Shooting logic - check if the enter key is pressed
+  if (event.code === "Enter") {
+    sendInput({ action: "shoot", playerID: playerID }); // Send shoot action to server
   }
 });
 
@@ -294,7 +306,7 @@ function animate() {
 
   // Step the Cannon.js world
   //world.step(1 / 60, delta, 3);
-  world.step(1 / 30, delta, 1);// Example of less frequent updates
+  world.step(1 / 30, delta, 1); // Example of less frequent updates
 
   // Handle player controls for both players
   handlePlayerControls(player1); // For player 1
@@ -333,7 +345,9 @@ class Cube {
 
     // Create the visual representation of the cube
     const geometry = new THREE.BoxGeometry(5, 5, 5);
-    const material = new THREE.MeshStandardMaterial({ color: Math.random() * 0xffffff });
+    const material = new THREE.MeshStandardMaterial({
+      color: Math.random() * 0xffffff,
+    });
     this.mesh = new THREE.Mesh(geometry, material);
     this.mesh.position.copy(this.body.position);
     scene.add(this.mesh);
@@ -358,9 +372,9 @@ class Cube {
 // Function to create cubes from server positions
 const cubes = [];
 function updateCubes(cubePositions) {
-  //this fixes the extra cube problem 
-  if(cubePositions.length < 5){
-    return
+  //this fixes the extra cube problem
+  if (cubePositions.length < 5) {
+    return;
   }
   // Clear existing cubes
   while (cubes.length > 0) {
@@ -474,6 +488,11 @@ function updateGameState(state) {
   player1CubesElement.innerHTML = "Player1 Cubes: " + state.player1Cubes;
   var player2CubesElement = document.getElementById("player2Cubes");
   player2CubesElement.innerHTML = "Player2 Cubes: " + state.player2Cubes;
+
+  var player1HealthElement = document.getElementById("player1Health");
+  player1HealthElement.innerHTML = "Player1 Health: " + state.player1Health;
+  var player2HealthElement = document.getElementById("player2Health");
+  player2HealthElement.innerHTML = "Player2 Health: " + state.player2Health;
 }
 
 // Function to count the number of cubes in the scene
@@ -503,7 +522,7 @@ function updatePlatforms(platformPositions) {
   platforms.length = 0;
 
   // Create new platforms
-  platformPositions.forEach(pos => {
+  platformPositions.forEach((pos) => {
     const platformBody = createPlatform(pos); // Create physical platform
     const meshGeometry = new THREE.BoxGeometry(10, 1, 10);
     const meshMaterial = new THREE.MeshStandardMaterial({ color: 0x8b0000 });
