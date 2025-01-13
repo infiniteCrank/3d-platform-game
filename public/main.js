@@ -155,8 +155,8 @@ class Player {
     this.body = new CANNON.Body({
       mass: 1,
       position: new CANNON.Vec3(0, 2, 0),
-      linearDamping: 0.2,
-      angularDamping: 0.5,
+      linearDamping: 1,
+      angularDamping: 1,
     });
 
     // Use a box shape for the collider
@@ -253,6 +253,8 @@ document.getElementById("info").classList.add("hidden");
 // Controls
 const keysPressed = {};
 
+const projectiles = []; // Array to hold active projectiles
+
 // Event Listeners for Key Presses
 document.addEventListener("keydown", (event) => {
   keysPressed[event.code] = true;
@@ -270,7 +272,22 @@ document.addEventListener("keydown", (event) => {
 
   // Shooting logic - check if the enter key is pressed
   if (event.code === "Enter") {
-    sendInput({ action: "shoot", playerID: playerID }); // Send shoot action to server
+    const direction = new CANNON.Vec3(0, 0, -1); // Default forward direction
+    if (playerID === "player1") {
+      direction.set(0, 0, -1).vadd(player1.body.velocity);
+      const position = player1.mesh.position.clone();
+      projectiles.push(new Projectile(position, direction, playerID));
+      var projectileInput = { action: "shoot", playerID: "player1", direction: direction, position: position, playerID: playerID}
+      console.log(projectileInput)
+      sendInput(projectileInput);
+    } else if (playerID === "player2") {
+      direction.set(0, 0, -1).vadd(player2.body.velocity);
+      const position = player2.mesh.position.clone();
+      projectiles.push(new Projectile(position, direction, playerID));
+      var projectileInput = { action: "shoot", playerID: "player2", direction: direction, position: position, playerID: playerID}
+      console.log(projectileInput)
+      sendInput(projectileInput);
+    }
   }
 });
 
@@ -288,6 +305,7 @@ function sendInput(input) {
         action: input.action,
         playerID: input.playerID, // Include playerID for collection
         direction: input.direction || null,
+        position: input.position || null,
       })
     );
   }
@@ -305,8 +323,8 @@ function animate() {
   const delta = clock.getDelta();
 
   // Step the Cannon.js world
-  //world.step(1 / 60, delta, 3);
-  world.step(1 / 30, delta, 1); // Example of less frequent updates
+  world.step(1 / 60, delta, 3);
+  //world.step(1 / 30, delta, 1); // Example of less frequent updates
 
   // Handle player controls for both players
   handlePlayerControls(player1); // For player 1
@@ -315,6 +333,16 @@ function animate() {
   // Update players
   player1.update(delta);
   player2.update(delta);
+
+  // Update projectiles
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const projectile = projectiles[i];
+    projectile.update();
+    if (projectile.body.position.y < 0) { // Remove if it falls below the ground
+      projectile.dispose();
+      projectiles.splice(i, 1);
+    }
+  }
 
   // Check for cube collection
   collectCubes(player1); // Check for player1 collecting cubes
@@ -413,6 +441,48 @@ function notifyServerCubeCollected(playerID) {
   sendInput({ action: "collect", playerID: playerID });
 }
 
+class Projectile {
+  constructor(position, direction, playerID) {
+    this.speed = 20;
+    var color =  0xff0000
+    if (playerID === "player2"){
+      color =  0x0000ff
+    }
+    // Create the Three.js mesh
+    const geometry = new THREE.SphereGeometry(0.5, 8, 8);
+    const material = new THREE.MeshStandardMaterial({ color: 0xff0000 });
+    this.mesh = new THREE.Mesh(geometry, material);
+    this.mesh.position.copy(position);
+    scene.add(this.mesh);
+
+    // Create the Cannon.js body
+    this.body = new CANNON.Body({
+      mass: 1,
+      position: new CANNON.Vec3(position.x, position.y, position.z),
+    });
+    this.body.addShape(new CANNON.Sphere(0.5)); // Match the radius of the sphere
+    //check for y in velocity 
+    if(!direction.y)[
+      direction.y = 0
+    ]
+    this.body.velocity.set(direction.x * this.speed, direction.y * this.speed, direction.z * this.speed);
+    world.addBody(this.body);
+  }
+
+  update() {
+    // Sync the Three.js mesh with the Cannon.js body
+    this.mesh.position.copy(this.body.position);
+    this.mesh.quaternion.copy(this.body.quaternion);
+  }
+
+  dispose() {
+    scene.remove(this.mesh);
+    this.mesh.geometry.dispose();
+    this.mesh.material.dispose();
+    world.remove(this.body);
+  }
+}
+
 // Handle Player Controls Function
 function handlePlayerControls(player) {
   let x = 0,
@@ -458,7 +528,7 @@ var cubeInit = false;
 var platformInit = false;
 // Update the game state with the latest data from the server
 function updateGameState(state) {
-  // console.log("Updating game state:", state); // Log the entire state update for debugging
+ console.log("Updating game state:", state); // Log the entire state update for debugging
   if (state.player1 && state.player1.position) {
     player1.setPosition(state.player1.position); // Update player 1 position
   }
@@ -477,9 +547,17 @@ function updateGameState(state) {
     updateCubes(state.cubes);
     cubeInit = true;
   }
+
+  //reset init when there are no cubes in the scene 
   if (countCubesInScene() === 0) {
     cubeInit = false;
   }
+
+  // display projectiles for other player
+  if(state.projectiles) {
+    updateProjectiles(state.projectiles)
+  }
+  
 
   var totalCubesElement = document.getElementById("totalCubes");
   totalCubesElement.innerHTML = "Total Cubes: " + state.cubes.length;
@@ -490,9 +568,9 @@ function updateGameState(state) {
   player2CubesElement.innerHTML = "Player2 Cubes: " + state.player2Cubes;
 
   var player1HealthElement = document.getElementById("player1Health");
-  player1HealthElement.innerHTML = "Player1 Health: " + state.player1Health;
+  player1HealthElement.innerHTML = "Player1 Health: " + state.player1health;
   var player2HealthElement = document.getElementById("player2Health");
-  player2HealthElement.innerHTML = "Player2 Health: " + state.player2Health;
+  player2HealthElement.innerHTML = "Player2 Health: " + state.player2health;
 }
 
 // Function to count the number of cubes in the scene
@@ -507,6 +585,21 @@ function countCubesInScene() {
     }
   });
   return cubeCount;
+}
+
+function updateProjectiles(projectiles){
+  projectiles.forEach((projectile) => {
+    console.log("***************** PROJECTILE **************************")
+    console.log(projectile)
+    if (playerID === "player1" && projectile.playerId === "player2") {
+      projectiles.push(new Projectile(projectile.position, projectile.velocity, projectile.playerId));
+      console.log("display player 2 projectile for player 1")
+    }else if (playerID === "player2" && projectile.playerId === "player1"){
+      console.log("display player 1 projectile for player 2")
+      projectiles.push(new Projectile(projectile.position, projectile.velocity, projectile.playerId));
+    }
+    console.log(projectile)
+  })
 }
 
 function updatePlatforms(platformPositions) {

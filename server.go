@@ -26,14 +26,24 @@ type PlayerState struct {
 	Position Position `json:"position"`
 }
 
+// ProjectileState holds the state of a projectile.
+type ProjectileState struct {
+	Position Position  `json:"position"`
+	Velocity Direction `json:"velocity"` // Optional: if you want to keep track of the velocity as well
+	PlayerID string    `json:"playerId"`
+}
+
 // GameState holds the state of the game within a lobby.
 type GameState struct {
-	Player1      PlayerState `json:"player1"`
-	Player2      PlayerState `json:"player2"`
-	Platforms    []Position  `json:"platforms"`
-	Cubes        []Position  `json:"cubes"` // Added cubes to the game state
-	Player1Cubes int64       `json:"player1Cubes"`
-	Player2Cubes int64       `json:"player2Cubes"`
+	Player1       PlayerState       `json:"player1"`
+	Player2       PlayerState       `json:"player2"`
+	Platforms     []Position        `json:"platforms"`
+	Cubes         []Position        `json:"cubes"` // Added cubes to the game state
+	Player1Cubes  int64             `json:"player1Cubes"`
+	Player2Cubes  int64             `json:"player2Cubes"`
+	Player1Health float64           `json:"player1health"`
+	Player2Health float64           `json:"player2health"`
+	Projectiles   []ProjectileState `json:"projectiles"` // Add projectiles to the game state
 }
 
 // InputMessage represents input from clients.
@@ -44,6 +54,7 @@ type InputMessage struct {
 	Action    string     `json:"action,omitempty"`
 	PlayerID  string     `json:"playerID,omitempty"` // Indicate player ID for collection
 	Direction *Direction `json:"direction,omitempty"`
+	Position  *Position  `json:"position,omitempty"` // The position to spawn the projectile
 }
 
 // Direction represents movement direction.
@@ -108,10 +119,12 @@ func newLobby(id string) *Lobby {
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 		state: GameState{
-			Player1:   PlayerState{Position: Position{X: 0, Y: 2, Z: 0}},
-			Player2:   PlayerState{Position: Position{X: 0, Y: 2, Z: 0}},
-			Platforms: platforms,
-			Cubes:     []Position{}, // Initialize with an empty slice,
+			Player1:       PlayerState{Position: Position{X: 0, Y: 2, Z: 0}},
+			Player2:       PlayerState{Position: Position{X: 0, Y: 2, Z: 0}},
+			Platforms:     platforms,
+			Cubes:         []Position{}, // Initialize with an empty slice,
+			Player1Health: 1.0,
+			Player2Health: 1.0,
 		},
 	}
 }
@@ -311,6 +324,7 @@ func (c *Client) readPump(s *Server) {
 		case "join_lobby":
 			s.joinLobby(c, input.LobbyID)
 		case "player_input":
+			// log.Println("Message:", string(message))
 			s.handlePlayerInput(c, input)
 		default:
 			log.Println("Unknown message type:", input.Type)
@@ -422,6 +436,37 @@ func (s *Server) joinLobby(c *Client, lobbyID string) {
 	c.send <- response
 }
 
+// HandleProjectile creates a new projectile
+func (l *Lobby) HandleProjectile(position Position, direction Direction, playerID string) {
+	// Create a new projectile state
+	projectile := ProjectileState{
+		Position: position,
+		Velocity: direction,
+		PlayerID: playerID,
+	}
+
+	// Add projectile to the game state
+	l.state.Projectiles = append(l.state.Projectiles, projectile)
+}
+
+// Update projectiles on each tick
+func (l *Lobby) updateProjectiles() {
+	for i := len(l.state.Projectiles) - 1; i >= 0; i-- {
+		projectile := &l.state.Projectiles[i]
+
+		// Update position based on velocity
+		projectile.Position.X += projectile.Velocity.X * 0.1 // Adjust speed as needed
+		projectile.Position.Y += projectile.Velocity.X * 0.1
+		projectile.Position.Z += projectile.Velocity.Z * 0.1
+
+		// Example: Remove projectile if it goes below a certain height (e.g., -1)
+		if projectile.Position.Y < -1 {
+			// Remove projectile from the slice
+			l.state.Projectiles = append(l.state.Projectiles[:i], l.state.Projectiles[i+1:]...)
+		}
+	}
+}
+
 // HandlePlayerInput processes player input and updates the game state.
 func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 	if c.lobby == nil {
@@ -477,7 +522,14 @@ func (s *Server) handlePlayerInput(c *Client, input InputMessage) {
 				collectCube(&lobby.state.Player2, "player2", lobby)
 			}
 		}
+	case "shoot":
+		if input.Position != nil && input.Direction != nil {
+			lobby.HandleProjectile(*input.Position, *input.Direction, input.PlayerID) // Create a projectile
+		}
 	}
+
+	// Update projectiles
+	lobby.updateProjectiles()
 
 	// Check for collisions with cubes
 	checkCubeCollision(lobby)
