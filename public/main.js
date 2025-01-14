@@ -13,6 +13,8 @@ const MESSAGE_TYPES = {
   PLAYER_INPUT: "player_input",
 };
 
+const MAX_PROJECTILE_DISTANCE = 10; // This can be adjustable
+
 // WebSocket Setup
 let socket;
 
@@ -169,6 +171,7 @@ class Player {
     this.jumpSpeed = 20;
     this.canJump = true;
     this.id = id;
+    this.playerID = playerID; // Store the ID of the player who shot the projectile
   }
 
   update(delta) {
@@ -274,22 +277,22 @@ document.addEventListener("keydown", (event) => {
   if (event.code === "Enter") {
     const direction = new CANNON.Vec3(0, 0, -1);
     let playerPosition, projectileInput;
-    
+
     if (playerID === "player1") {
       playerPosition = player1.mesh.position.clone();
     } else if (playerID === "player2") {
       playerPosition = player2.mesh.position.clone();
     }
-  
+
     const projectile = new Projectile(playerPosition, direction, playerID);
     projectiles.push(projectile); // Add the projectile to the local projectiles array
-  
+
     // Prepare the input to send, including the projectile's position and direction
-    projectileInput = { 
-      action: "shoot", 
-      playerID, 
-      position: playerPosition, 
-      direction: direction.clone()
+    projectileInput = {
+      action: "shoot",
+      playerID,
+      position: playerPosition,
+      direction: direction.clone(),
     };
     sendInput(projectileInput); // Send to server
   }
@@ -342,7 +345,8 @@ function animate() {
   for (let i = projectiles.length - 1; i >= 0; i--) {
     const projectile = projectiles[i];
     projectile.update();
-    if (projectile.body.position.y < 0) { // Remove if it falls below the ground
+    if (projectile.body.position.y < 0) {
+      // Remove if it falls below the ground
       projectile.dispose();
       projectiles.splice(i, 1);
     }
@@ -448,9 +452,9 @@ function notifyServerCubeCollected(playerID) {
 class Projectile {
   constructor(position, direction, playerID) {
     this.speed = 20;
-    var color =  0xff0000
-    if (playerID === "player2"){
-      color =  0x0000ff
+    var color = 0xff0000;
+    if (playerID === "player2") {
+      color = 0x0000ff;
     }
     // Create the Three.js mesh
     const geometry = new THREE.SphereGeometry(0.5, 8, 8);
@@ -465,11 +469,13 @@ class Projectile {
       position: new CANNON.Vec3(position.x, position.y, position.z),
     });
     this.body.addShape(new CANNON.Sphere(0.5)); // Match the radius of the sphere
-    //check for y in velocity 
-    if(!direction.y)[
-      direction.y = 0
-    ]
-    this.body.velocity.set(direction.x * this.speed, direction.y * this.speed, direction.z * this.speed);
+    //check for y in velocity
+    if (!direction.y) [(direction.y = 0)];
+    this.body.velocity.set(
+      direction.x * this.speed,
+      direction.y * this.speed,
+      direction.z * this.speed
+    );
     world.addBody(this.body);
   }
 
@@ -532,7 +538,7 @@ var cubeInit = false;
 var platformInit = false;
 // Update the game state with the latest data from the server
 function updateGameState(state) {
- console.log("Updating game state:", state); // Log the entire state update for debugging
+  console.log("Updating game state:", state); // Log the entire state update for debugging
   if (state.player1 && state.player1.position) {
     player1.setPosition(state.player1.position); // Update player 1 position
   }
@@ -552,16 +558,36 @@ function updateGameState(state) {
     cubeInit = true;
   }
 
-  //reset init when there are no cubes in the scene 
+  //reset init when there are no cubes in the scene
   if (countCubesInScene() === 0) {
     cubeInit = false;
   }
 
   // display projectiles for other player
-  if(state.projectiles) {
-    updateProjectiles(state.projectiles)
+  if (state.projectiles) {
+    updateProjectiles(state.projectiles);
   }
-  
+
+  // Update projectiles
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const projectile = projectiles[i];
+    projectile.update();
+
+    // Determine the player who shot this projectile
+    const shooter = projectile.playerID === "player1" ? player1 : player2;
+
+    // Check if the projectile has fallen below the ground or exceeded the distance threshold
+    const distanceFromShooter = projectile.body.position.distanceTo(
+      shooter.body.position
+    );
+    if (
+      projectile.body.position.y < 0 ||
+      distanceFromShooter > MAX_PROJECTILE_DISTANCE
+    ) {
+      projectile.dispose(); // Dispose and remove the projectile
+      projectiles.splice(i, 1); // Remove from the array
+    }
+  }
 
   var totalCubesElement = document.getElementById("totalCubes");
   totalCubesElement.innerHTML = "Total Cubes: " + state.cubes.length;
@@ -592,19 +618,21 @@ function countCubesInScene() {
 }
 
 function updateProjectiles(projectileData) {
-  const { position, velocity, playerId } = projectileData[0];
-  // Only append a new Projectile if it doesn't already exist
-  const existingProjectile = projectiles.find(p => (
-    p.body.position.x === position.x && 
-    p.body.position.y === position.y && 
-    p.body.position.z === position.z
-  ));
+  projectileData.forEach(({ position, velocity, playerId }) => {
+    // Check if a projectile already exists based on distance from the player who shot it.
+    const existingProjectile = projectiles.find(p => {
+      const shooter = p.playerID === "player1" ? player1 : player2;
+      const distance = p.body.position.distanceTo(shooter.body.position);
+      return distance < MAX_PROJECTILE_DISTANCE; // Consider it existing if it's within the range
+    });
 
-  if (!existingProjectile) {
-    const projectile = new Projectile(position, velocity, playerId);
-    projectiles.push(projectile);
-    console.log(`Displayed projectile from ${playerId} for ${playerID}`);
-  }
+    // Only create a new projectile if it does not already exist or is outside the max distance
+    if (!existingProjectile) {
+      const projectile = new Projectile(position, velocity, playerId);
+      projectiles.push(projectile);
+      console.log(`Displayed projectile from ${playerId} for ${playerID}`);
+    }
+  });
 }
 
 function updatePlatforms(platformPositions) {
